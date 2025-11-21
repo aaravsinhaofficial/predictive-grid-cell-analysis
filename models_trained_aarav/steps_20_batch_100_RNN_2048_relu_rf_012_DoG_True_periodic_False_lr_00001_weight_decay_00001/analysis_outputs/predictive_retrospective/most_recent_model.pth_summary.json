@@ -1,0 +1,31 @@
+{
+  "checkpoint": "models_trained_aarav/steps_20_batch_100_RNN_2048_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_00001/most_recent_model.pth",
+  "cm_per_step": 1.9858840852975845,
+  "gridness_threshold": 0.5,
+  "zero_shift_threshold": 0.5,
+  "min_shift_cm": 5.0,
+  "shuffle_trials": 0,
+  "shuffle_alpha": null,
+  "counts": {
+    "predictive": 0,
+    "retrospective": 0,
+    "zero_lag": 0,
+    "low_grid": 128,
+    "other": 0
+  },
+  "preferred_shift_mean_cm": {
+    "predictive": NaN,
+    "retrospective": NaN
+  },
+  "preferred_shift_median_cm": {
+    "predictive": NaN,
+    "retrospective": NaN
+  },
+  "gridness_means": {
+    "predictive_zero": NaN,
+    "predictive_shift": NaN,
+    "retrospective_zero": NaN,
+    "retrospective_shift": NaN
+  },
+  "figure_path": "models_trained_aarav/steps_20_batch_100_RNN_2048_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_00001/analysis_outputs/predictive_retrospective/most_recent_model.pth_summary.png"
+}

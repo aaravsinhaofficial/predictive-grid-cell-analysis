@@ -1,0 +1,118 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{caption}
+\captionsetup[figure]{labelformat=empty}
+\setlength{\parskip}{0.8em}
+\setlength{\parindent}{0pt}
+
+\title{Predictive Grid Analysis in \texttt{grid-pattern-formation}}
+\author{Project Notes}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Background and Motivation}
+Predictive grid cells in the medial entorhinal cortex (MEC) anticipate an animal's future position by shifting their firing fields forward along the current trajectory. Ouchi and Fujisawa \cite{Ouchi2024} showed that these cells fire near the trough phase of hippocampal theta cycles, forming sequential sweeps that cover the path from present to future goal locations. Their results support the long-standing view that the MEC provides a prospective map used for forward planning.
+
+The experiments in this repository recreate that phenomenon in a controlled recurrent neural network (RNN) trained to path integrate. By generating synthetic trajectories, encoding them with simulated place cells, and observing the hidden-unit ratemaps, we can scrutinize whether the network exhibits analogous predictive shifts. The remainder of this document focuses on how the shift is computed, how the corresponding gridness scores are plotted, and how the figures should be assembled.
+
+\section{Shift-Based Predictive Scoring}
+\subsection{Constructing Rate Maps}
+Long trajectories are synthesized with \texttt{TrajectoryGenerator}, which samples random walks inside a $2.2\times 2.2$\,m arena while discouraging wall collisions. Each batch outputs velocities $\mathbf{v}_t$, positions $\mathbf{p}_t=(x_t, y_t)$, and heading increments. The \texttt{PlaceCells} module tiles the arena with $N_p$ Gaussian receptive fields and emits a difference-of-Gaussians code that is normalized with a softmax. The trained \texttt{model.RNN} ingests the velocity stream, initializes its hidden state with the first place-cell code, and is trained (via \texttt{compute\_loss}) using cross-entropy between predicted and target place-cell activations plus $\ell_2$ regularization on the recurrent weights.
+
+To quantify spatial structure, \texttt{scores.GridScorer} bins the concatenated positions and unit activations into rate maps $R_u(x,y)$ using \texttt{calculate\_ratemap} and evaluates spatial autocorrelograms (SACs). Gridness scores follow
+\begin{align}
+    \mathrm{grid}_{60} &= \tfrac{1}{2}\left(\rho_{60} + \rho_{120}\right) - \tfrac{1}{3}\left(\rho_{30} + \rho_{90} + \rho_{150}\right),\\
+    \mathrm{grid}_{90} &= \rho_{90} - \tfrac{1}{2}(\rho_{45} + \rho_{135}),
+\end{align}
+where $\rho_{\theta}$ is the Pearson correlation between the SAC and its rotation by $\theta^\circ$ inside the active annulus. These scores are computed for ten concentric ring masks; the best mask per unit is retained.
+
+\subsection{Aligning Activity with Future Positions}
+Predictive coding is assessed with \texttt{GridScorer.get\_scores\_with\_shift}. Given flattened trajectories $\{\mathbf{p}_t\}_{t=0}^{T-1}$ and hidden activations $g_{t,u}$, samples are realigned as
+\begin{equation}
+    \mathcal{D}_k = \left\{\big(\mathbf{p}_{t+k}, g_{t,u}\big) \mid 0 \le t < T - |k| \right\},
+\end{equation}
+so $k>0$ tests whether activity at time $t$ predicts the position $k$ steps ahead, and $k<0$ probes postdictive or phase-precessive coding. After trimming the invalid edges, \texttt{calculate\_ratemap} and \texttt{get\_scores} are applied to $\mathcal{D}_k$, yielding $(s_{60}(k,u), s_{90}(k,u))$. When activations have shape $[T,B,N_g]$, the procedure iterates across the last dimension.
+
+Because trajectories are measured in meters, the helper \texttt{cm\_per\_step\_from\_positions} (in \texttt{plotting\_functional\_classes.py}) estimates the average displacement per time step,
+\begin{equation}
+    \Delta_{\mathrm{cm}} = 100 \times \frac{1}{T-1} \sum_{t=0}^{T-2} \big\lVert \mathbf{p}_{t+1} - \mathbf{p}_{t} \big\rVert_2,
+\end{equation}
+allowing integer lags to be reported in centimeters. This conversion is reused by every plotting script so that axis ticks reflect physical distance rather than abstract step counts. Higher-level helpers such as \texttt{visualize.predictive\_gridness\_analysis} and \texttt{multi\_seed\_predictive\_analysis.py} build on the same API to sweep many lags, collect the $S_{60}$ matrix, and compare best-shift scores across checkpoints.
+
+\section{Visualization Workflows}
+\subsection{Baseline Diagnostics (\texttt{eval.py})}
+The entry point \texttt{eval.py} automates post-training evaluation. After loading a checkpoint, it calls \texttt{visualize.compute\_ratemaps} to average activations over $\approx 1000$ trajectories, scores up to 100 units, and summarizes the distribution of grid and border scores. When the optional \texttt{--predictive\_lags} argument is supplied, the script also generates per-cell shift curves and a global heatmap of $s_{60}(k,u)$. Figure~\ref{fig:fig1} shows representative outputs (rate maps, SACs, predictive overlays).
+
+\begin{figure}[t]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{figures/seed1_low_grid_ratemaps.png}
+        \caption*{\textbf{(Left) Model.} Low-grid rate maps from Seed 1 (\texttt{low\_grid\_ratemaps\_lt\_0.30.png}).}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \fbox{\rule{0pt}{0.6\linewidth}\rule{0.95\linewidth}{0pt}}
+    \end{minipage}
+    \caption{Fig. 1. Predictive grid representations of future spatial information in the MEC for the trained model (left) and the experimental panel from Ouchi \& Fujisawa (right).}
+    \label{fig:fig1}
+\end{figure}
+
+\subsection{Predictive Functional Classes Panels}
+\texttt{plotting\_functional\_classes.py} recreates the multi-panel predictive figure. The script aggregates $n_{\text{batches}}$ trajectories via \texttt{collect\_sequences}, estimates $\Delta_{\mathrm{cm}}$, ranks all hidden units by their peak $s_{60}$ over a coarse lag sweep $k \in [-10, 10]$, and renders each selected cell with three components: (i) the original rate map and SAC alongside several future-shifted maps, (ii) a gridness-versus-shift curve centered at zero and annotated with ``Past/Future'' labels, and (iii) a head-direction tuning polar plot computed from instantaneous velocity. Figure~\ref{fig:fig2} gives an example of this layout.
+
+\begin{figure}[t]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \includegraphics[width=\linewidth]{figures/seed1_predictive_classes.png}
+        \caption*{\textbf{(Left) Model.} Predictive-class heatmap + curves from Seed 1.}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \fbox{\rule{0pt}{0.6\linewidth}\rule{0.95\linewidth}{0pt}}
+    \end{minipage}
+    \caption{Fig. 2. Grid fields of predictive grid cells shift in the direction of approach for the synthetic RNN (left) and the experimental recordings (right).}
+    \label{fig:fig2}
+\end{figure}
+
+\subsection{Predictive Grid Cell Classes (Heatmaps)}
+\texttt{replicate\_predictive\_grid\_figure.py} focuses on population-level structure. It infers model dimensions from a checkpoint, builds a minimal \texttt{Options} dataclass, and calls \texttt{visualize.predictive\_gridness\_analysis} to obtain the matrix $S_{60}$. Units are then classified as predictive, phase-precession, or phase-locked using \texttt{classify\_units}, which checks both the centimeter lag of the best score and a minimum gridness threshold. Only neurons whose peak $s_{60}$ exceeds \texttt{--gridness\_threshold} enter any class; units failing that criterion are excluded entirely, so every row in the diagram represents a bona fide grid-like unit. \texttt{plot\_heatmaps\_and\_curves} sorts each group's units by preferred lag before plotting, which guarantees that the stripes in the heatmap progress smoothly from short to long predictive distances—the apparent order is therefore enforced by the algorithm rather than being a coincidence. The same ordering drives the mean $\pm$~SEM curves plotted underneath (Fig.~\ref{fig:fig2}).
+
+\section{Per-Seed Outputs in Multi-Seed Analysis}
+When several checkpoints (``seeds'') must be compared, run \texttt{multi\_seed\_predictive\_analysis.py}. The script glob-matches checkpoints, loads each into memory, infers $(N_g, N_p, d_v)$ directly from the state dict, and reuses the same trajectory generator and scoring stack described earlier. For every seed, three visual artifacts are exported to \texttt{analysis\_outputs/} alongside a serialized \texttt{gridness\_data.npz}.
+
+\subsection{Dot Plot of Zero vs Shifted Gridness}
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.65\textwidth]{figures/seed1_gridness_zero_vs_shift.png}
+    \caption{Fig. 3. Zero-shift versus shifted gridness scatter for Seed 1 (output of \texttt{scatter\_zero\_vs\_shift}).}
+    \label{fig:fig3}
+\end{figure}
+Figure~\ref{fig:fig3} plots each unit's gridness at zero shift on the x-axis against its best score among lags whose projected displacement exceeds the threshold $\tau$ on the y-axis, with diagonal and threshold guides highlighting predictive gains over the unshifted baseline. After computing $S_{60}(k,u)$ and converting lags to centimeters, the code isolates the zero-shift row ($k=0$) and the best score among all lags with $|k|\Delta_{\mathrm{cm}} \ge \tau$ (default \texttt{--shift\_threshold\_cm}). The helper \texttt{best\_shift\_scores} masks the lag axis accordingly, performs a nan-aware max, and returns one value per unit. \texttt{scatter\_zero\_vs\_shift} then plots $(s_{60}(0,u), \max_{|k|\ge\tau} s_{60}(k,u))$ for all $u$, overlays unity and threshold reference lines, and saves the figure (Fig.~\ref{fig:fig3}). Each point therefore shows whether a unit gains predictive strength only when shifted or is already grid-like at zero lag.
+
+\subsection{Predictive Classes Diagram per Seed}
+The same script rebuilds the predictive/phase-precession/phase-locked diagrams for every checkpoint without rerunning the standalone replicate script. Using the centimeter lag array $L_{\mathrm{cm}}$ and $S_{60}$:
+\begin{enumerate}[label=\alph*., leftmargin=*]
+    \item \texttt{classify\_units} applies the shift threshold $\tau$ and the minimum gridness \texttt{--gridness\_threshold} to determine which units belong to each functional class (predictive if their best lag exceeds $\tau$, phase-precession if it is below $-\tau$, otherwise phase-locked). Units whose best $s_{60}$ never clears the threshold never appear, ensuring each row corresponds to a neuron with reliable spatial tuning.
+    \item \texttt{prepare\_group\_matrix} sorts each group's units by their preferred centimeter lag so the heatmap rows align with increasing predictive distance. This deterministic ordering is what causes the diagonal bands to appear; it is imposed on every seed and is therefore reproducible, not serendipitous.
+    \item \texttt{plot\_heatmaps\_and\_curves}—shared with the replicate figure—renders a three-column layout with heatmaps on top and mean $\pm$~SEM curves beneath (same structure as Fig.~\ref{fig:fig2}), then stores the PNG as \texttt{predictive\_classes.png} inside the seed's \texttt{analysis\_outputs}.
+\end{enumerate}
+Because the data for each seed are processed independently, differences in $\Delta_{\mathrm{cm}}$ or available shifts automatically reflect in the axes.
+
+\subsection{Rate-Map Gallery for Low-Grid Units}
+To visualize failure cases, \texttt{plot\_low\_grid\_ratemaps} selects units whose maximum $s_{60}(k,u)$ never exceeds the chosen cutoff (default \texttt{--low\_grid\_threshold}). For each qualifying unit, the function reuses \texttt{GridScorer.get\_scores\_with\_shift} at $k=0$, applies mild smoothing for display, and tiles the rate maps in a grid (up to \texttt{--low\_grid\_plot\_units} entries). Figure~\ref{fig:fig1} includes one such gallery.
+
+\section{Summary}
+The ``shift'' used throughout the repository is a controlled re-indexing of position traces relative to hidden activations. By combining synthetic trajectories, place-cell codes, and \texttt{GridScorer}'s lag-aware ratemaps, the project reproduces the predictive grid phenomenon described by Ouchi and Fujisawa. Positive lags diagnose whether a unit fires for future positions, negative lags capture postdictive structure, and zero lag recovers classic gridness. The plotting scripts discussed above differ only in presentation: they all rely on the same shift computation, centimeter scaling, and trajectory aggregation helpers, making it straightforward to extend the analysis to new checkpoints or figure styles.
+
+\begin{thebibliography}{9}
+\bibitem{Ouchi2024}
+A.~Ouchi and S.~Fujisawa.
+\newblock Predictive grid coding in the medial entorhinal cortex.
+\newblock \emph{Science}, 2024.
+\end{thebibliography}
+
+\end{document}

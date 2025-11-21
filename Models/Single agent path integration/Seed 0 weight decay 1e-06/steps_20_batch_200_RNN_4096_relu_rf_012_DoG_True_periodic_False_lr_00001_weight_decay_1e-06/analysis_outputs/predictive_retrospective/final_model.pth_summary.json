@@ -1,0 +1,31 @@
+{
+  "checkpoint": "/Users/aaravsinha/grid-pattern-formation/Models/Single agent path integration/Seed 0 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/final_model.pth",
+  "cm_per_step": 1.9874583929777145,
+  "gridness_threshold": 0.5,
+  "zero_shift_threshold": 0.5,
+  "min_shift_cm": 5.0,
+  "shuffle_trials": 0,
+  "shuffle_alpha": null,
+  "counts": {
+    "predictive": 14,
+    "retrospective": 13,
+    "zero_lag": 17,
+    "low_grid": 468,
+    "other": 0
+  },
+  "preferred_shift_mean_cm": {
+    "predictive": 12.492595613002777,
+    "retrospective": -11.00746186879965
+  },
+  "preferred_shift_median_cm": {
+    "predictive": 11.924750357866287,
+    "retrospective": -11.924750357866287
+  },
+  "gridness_means": {
+    "predictive_zero": 0.7211600765709394,
+    "predictive_shift": 0.8790318658774201,
+    "retrospective_zero": 0.7448005954085384,
+    "retrospective_shift": 0.8292495254435432
+  },
+  "figure_path": "/Users/aaravsinha/grid-pattern-formation/Models/Single agent path integration/Seed 0 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/analysis_outputs/predictive_retrospective/final_model.pth_summary.png"
+}

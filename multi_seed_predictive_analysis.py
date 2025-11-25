@@ -296,9 +296,9 @@ def plot_low_grid_ratemaps(xs: np.ndarray,
 
 def zero_unit_weights_in_place(model: RNN, unit_indices: Sequence[int]) -> None:
     """Zero encoder/decoder/recurrent weights so selected units are silenced."""
-    if not unit_indices:
+    if unit_indices is None:
         return
-    idx_arr = np.array(unit_indices, dtype=int)
+    idx_arr = np.array(unit_indices, dtype=int).reshape(-1)
     idx_arr = idx_arr[(idx_arr >= 0) & (idx_arr < model.Ng)]
     if idx_arr.size == 0:
         return

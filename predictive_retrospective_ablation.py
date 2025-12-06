@@ -270,12 +270,12 @@ def run_ablation_for_checkpoint(
 def plot_single_class_lines(results: List[Dict], percentiles: Sequence[float], save_path: str) -> None:
     labels = ["predictive", "retrospective", "normal"]
     colors = {
-        "predictive": "#1f77b4",
-        "retrospective": "#d62728",
-        "normal": "#7f7f7f",
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
     }
 
-    fig, ax = plt.subplots(figsize=(6.4, 4.6))
+    fig, ax = plt.subplots(figsize=(6.4, 4.1))
     baseline_vals = [r.get("baseline_error_cm") for r in results if r.get("baseline_error_cm") is not None]
     baseline_mean = float(np.nanmean(baseline_vals)) if baseline_vals else math.nan
     if math.isfinite(baseline_mean):

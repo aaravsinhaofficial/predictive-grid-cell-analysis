@@ -71,9 +71,9 @@ def classify_units(zero_scores: np.ndarray,
     if best_significant is not None:
         peak_mask &= best_significant
 
-    predictive = zero_mask & peak_mask & shift_mask & (best_shift_cm >= min_shift_cm)
-    retrospective = zero_mask & peak_mask & shift_mask & (best_shift_cm <= -min_shift_cm)
-    zero_lag = zero_mask & peak_mask & shift_mask & (np.abs(best_shift_cm) < min_shift_cm)
+    predictive = ~zero_mask & peak_mask & shift_mask & (best_shift_cm >= min_shift_cm)
+    retrospective = ~zero_mask & peak_mask & shift_mask & (best_shift_cm <= -min_shift_cm)
+    zero_lag = zero_mask 
     low_grid = ~(zero_mask & peak_mask)
     other = ~(predictive | retrospective | zero_lag | low_grid)
 
@@ -178,7 +178,7 @@ def plot_summary(fig_path: str,
     fig.suptitle(f"Predictive vs retrospective summary\n{ckpt_label}")
     fig.tight_layout(rect=[0, 0.02, 1, 0.95])
     fig.savefig(fig_path, dpi=200)
-    plt.close(fig)
+    #plt.close(fig)
 
 
 def summarize_checkpoint(args) -> Dict[str, float]:
@@ -206,7 +206,7 @@ def summarize_checkpoint(args) -> Dict[str, float]:
         Ng=Ng_eval,
     )
 
-    cm_step = cm_per_step_from_positions(xs, ys)
+    cm_step = 1 # cm_per_step_from_positions(xs, ys)
     lag_cm = np.array(lags, dtype=float) * cm_step
     zero_idx = lags.index(0)
     zero_scores = scores_60[zero_idx]
@@ -313,7 +313,7 @@ def summarize_checkpoint(args) -> Dict[str, float]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint_path", required=True, help="Path to a trained model (.pth).")
+    parser.add_argument("--checkpoint_path", default="Models/Single agent path integration/Seed 0 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/final_model.pth",  help="Path to a trained model (.pth).")
     parser.add_argument("--out_dir", default=None, help="Optional directory override for outputs.")
     parser.add_argument("--batch_size", default=100, type=int)
     parser.add_argument("--sequence_length", default=20, type=int)
@@ -325,8 +325,8 @@ def main():
     parser.add_argument("--box_height", default=2.2, type=float)
     parser.add_argument("--learning_rate", default=1e-4, type=float)
     parser.add_argument("--res", default=20, type=int)
-    parser.add_argument("--n_batches", default=25, type=int, help="How many trajectory batches to aggregate.")
-    parser.add_argument("--Ng_use", default=512, type=int, help="How many units to score.")
+    parser.add_argument("--n_batches", default=10, type=int, help="How many trajectory batches to aggregate.")
+    parser.add_argument("--Ng_use", default=4096, type=int, help="How many units to score.")
     parser.add_argument("--traj_speed_scale", default=1.0, type=float)
     parser.add_argument("--traj_speed_max", default=None, type=float)
     parser.add_argument("--traj_velocity_smoothing", default=0.0, type=float)
@@ -337,7 +337,7 @@ def main():
     parser.add_argument("--gridness_threshold", default=0.5, type=float, help="Minimum gridness at the preferred shift.")
     parser.add_argument("--zero_shift_threshold", default=0.5, type=float, help="Minimum gridness at zero shift.")
     parser.add_argument("--min_shift_cm", default=5.0, type=float, help="Minimum |shift| (cm) to call a unit predictive/retrospective.")
-    parser.add_argument("--max_lag", default=20, type=int, help="Evaluate lags from -max_lag to +max_lag.")
+    parser.add_argument("--max_lag", default=10, type=int, help="Evaluate lags from -max_lag to +max_lag.")
     parser.add_argument("--shuffle_trials", default=0, type=int, help="Number of shuffle permutations (0 disables significance testing).")
     parser.add_argument("--shuffle_alpha", default=0.05, type=float, help="Tail probability for shuffle thresholds.")
     parser.add_argument("--shuffle_seed", default=0, type=int)
@@ -349,3 +349,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+

@@ -79,6 +79,46 @@ parser.add_argument('--box_height',
                     default=2.2,
                     type=float,
                     help='height of training environment')
+parser.add_argument('--trajectory_style',
+                    default='random_walk',
+                    choices=['random_walk', 'straight', 'per_step_random'],
+                    help='motion regime: smooth random walk (default), straight with fixed speed, or new random heading/speed each step')
+parser.add_argument('--trajectory_fixed_speed',
+                    default=None,
+                    type=float,
+                    help='fixed forward speed in m/s when using --trajectory_style straight')
+parser.add_argument('--trajectory_dt',
+                    default=0.02,
+                    type=float,
+                    help='trajectory timestep (seconds)')
+parser.add_argument('--trajectory_turn_sigma_scale',
+                    default=1.0,
+                    type=float,
+                    help='scale on rotational noise; reduce for more predictable heading')
+parser.add_argument('--trajectory_speed_scale',
+                    default=1.0,
+                    type=float,
+                    help='scale on forward speed; increase for faster motion')
+parser.add_argument('--trajectory_speed_max',
+                    default=None,
+                    type=float,
+                    help='optional cap on forward speed (m/s)')
+parser.add_argument('--trajectory_velocity_smoothing',
+                    default=0.0,
+                    type=float,
+                    help='EMA factor in [0,1); >0 smooths speed changes')
+parser.add_argument('--trajectory_border_region',
+                    default=0.03,
+                    type=float,
+                    help='distance from wall (m) that triggers avoidance turn/slowdown')
+parser.add_argument('--trajectory_wall_slowdown',
+                    default=0.25,
+                    type=float,
+                    help='speed multiplier near walls (non-periodic envs)')
+parser.add_argument('--trajectory_wall_turn_scale',
+                    default=1.0,
+                    type=float,
+                    help='strength of wall-induced turn when non-periodic')
 parser.add_argument('--device',
                     default='cuda' if torch.cuda.is_available() else 'cpu',
                     type=str,
@@ -102,6 +142,31 @@ parser.add_argument('--eval_n_avg',
 parser.add_argument('--weights_npy',
                     default=None,
                     help='path to example_trained_weights.npy (TF-era) to load')
+parser.add_argument('--grid_eval_interval',
+                    default=0,
+                    type=int,
+                    help='run predictive grid-cell diagnostics every N epochs (0 disables)')
+parser.add_argument('--grid_eval_lags',
+                    nargs='+',
+                    default=[0, 1, 2, 3, 4, 5],
+                    type=int,
+                    help='time-shift values (in steps) for predictive gridness scoring')
+parser.add_argument('--grid_eval_batches',
+                    default=5,
+                    type=int,
+                    help='batches to average for gridness diagnostics')
+parser.add_argument('--grid_eval_threshold',
+                    default=0.3,
+                    type=float,
+                    help='gridness cutoff used to count predictive/zero-lag units')
+parser.add_argument('--grid_eval_max_units',
+                    default=256,
+                    type=int,
+                    help='max grid units to score during training diagnostics (for speed)')
+parser.add_argument('--grid_eval_res',
+                    default=20,
+                    type=int,
+                    help='ratemap resolution for predictive gridness diagnostics')
 
 options = parser.parse_args()
 options.run_ID = generate_run_ID(options)

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Toroidal manifold analysis with predictive/retrospective ablations.
+"""Toroidal manifold analysis with predictive/retrospective/normal ablations.
 
 This script:
   1) extracts a torus parameterization from grid-cell rate maps,
   2) projects hidden activity onto toroidal coordinates,
-  3) compares baseline vs predictive-cell vs retrospective-cell ablations.
+  3) compares baseline vs predictive/retrospective/normal grid-cell ablations.
 
 Outputs are written beside the checkpoint under analysis_outputs/torus/:
-  - torus_comparison.png : 3D point clouds for each condition (baseline / PGC ablated / RGC ablated)
+  - torus_comparison.png : 3D point clouds for each condition (baseline / PGC ablated / RGC ablated / normal ablated)
   - torus_metrics.json   : lattice vectors, unit counts, radius variation, phase-to-position decoding errors
 """
 
@@ -453,6 +453,7 @@ def main():
     classes = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
     predictive_units = classes["predictive"].tolist()
     retrospective_units = classes["retrospective"].tolist()
+    normal_units = classes.get("normal", np.array([], dtype=int)).tolist()
 
     # Rate maps (baseline) for the basis units
     model = RNN(options, place_cells).to(device)
@@ -487,6 +488,9 @@ def main():
     projections["Retrospective ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "retrospective", retrospective_units, torus_radii
     )
+    projections["Normal grid ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "normal", normal_units, torus_radii
+    )
 
     # Plot
     out_dir = os.path.join(os.path.dirname(args.checkpoint_path), "analysis_outputs", "torus")
@@ -517,6 +521,7 @@ def main():
         "grid_units_used": int(len(basis_units_global)),
         "predictive_units": len(predictive_units),
         "retrospective_units": len(retrospective_units),
+        "normal_units": len(normal_units),
     }
     for name, proj in projections.items():
         metrics[name] = {

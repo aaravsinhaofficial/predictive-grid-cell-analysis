@@ -46,6 +46,12 @@ class TrajectoryGenerator(object):
         self.border_region = getattr(self.options, "trajectory_border_region", 0.03)  # meters
         wall_slowdown = getattr(self.options, "trajectory_wall_slowdown", 0.25)
         wall_turn_scale = getattr(self.options, "trajectory_wall_turn_scale", 1.0)
+        traj_style = str(getattr(self.options, "trajectory_style", "random_walk")).lower()
+        if traj_style not in {"random_walk", "straight", "per_step_random"}:
+            traj_style = "random_walk"
+        fixed_speed = getattr(self.options, "trajectory_fixed_speed", None)
+        if fixed_speed is not None:
+            fixed_speed = float(fixed_speed)
 
         # Initialize variables
         position = np.zeros([batch_size, samples + 2, 2])
@@ -58,9 +64,16 @@ class TrajectoryGenerator(object):
         # Generate sequence of random boosts and turns
         random_turn = np.random.normal(mu, sigma, [batch_size, samples + 1])
         random_vel = np.random.rayleigh(b, [batch_size, samples + 1]) * speed_scale
+        if traj_style == "straight" and fixed_speed is not None:
+            random_vel[:] = fixed_speed
+            random_turn[:] = 0.0
         v = np.abs(np.random.normal(0, b * np.pi / 2, batch_size)) * speed_scale
 
         for t in range(samples + 1):
+            if traj_style == "per_step_random":
+                # Re-sample heading every step for maximally unpredictable motion
+                head_dir[:, t] = np.random.uniform(-np.pi, np.pi, batch_size)
+
             # Update velocity
             target_v = random_vel[:, t]
             if velocity_smoothing > 0:
@@ -79,7 +92,14 @@ class TrajectoryGenerator(object):
                 v[is_near_wall] *= wall_slowdown
 
             # Update turn angle
-            turn_angle += dt * random_turn[:, t]
+            if traj_style == "straight":
+                # Keep heading fixed except for wall avoidance
+                turn_angle += 0.0
+            elif traj_style == "per_step_random":
+                # Heading already resampled; only apply wall avoidance
+                turn_angle += 0.0
+            else:
+                turn_angle += dt * random_turn[:, t]
 
             # Take a step
             velocity[:, t] = v * dt
@@ -87,7 +107,10 @@ class TrajectoryGenerator(object):
             position[:, t + 1] = position[:, t] + update
 
             # Rotate head direction
-            head_dir[:, t + 1] = head_dir[:, t] + turn_angle
+            if traj_style == "per_step_random":
+                head_dir[:, t + 1] = np.random.uniform(-np.pi, np.pi, batch_size)
+            else:
+                head_dir[:, t + 1] = head_dir[:, t] + turn_angle
 
         # Periodic boundaries
         if self.options.periodic:

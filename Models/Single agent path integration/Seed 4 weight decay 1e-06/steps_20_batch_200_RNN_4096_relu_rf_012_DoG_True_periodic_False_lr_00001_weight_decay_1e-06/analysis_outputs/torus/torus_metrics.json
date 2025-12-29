@@ -1,57 +1,72 @@
 {
   "k1_cycles_per_m": [
-    -0.9090909090909091,
-    -0.9090909090909091
+    -0.45454545454545453,
+    -1.3636363636363635
   ],
   "k2_cycles_per_m": [
-    0.33275036707676237,
-    -1.2418412761676714
+    0.9536710051605978,
+    -1.0754660926292905
   ],
-  "peak_angle_rad": -2.356194490192345,
-  "peak_power": 0.73952851562306,
+  "peak_angle_rad": -1.892546881191539,
+  "peak_power": 0.7519425354492892,
   "grid_units_used": 153,
   "predictive_units": 88,
   "retrospective_units": 33,
+  "normal_units": 32,
   "Baseline": {
-    "rmse_cm": 38.32220435142517,
-    "step_rmse_cm": 6.495336941185878,
+    "rmse_cm": 39.6455317735672,
+    "step_rmse_cm": 6.248914598513064,
     "radius_cv": {
-      "r1_cv": 0.5707987055777107,
-      "r2_cv": 0.5287181444915413
+      "r1_cv": 0.5803626984277241,
+      "r2_cv": 0.5205784125369205
     },
-    "major_radius_mean": 1.1575440056823219,
-    "major_radius_std": 0.3120652873101838,
-    "major_radius_cv": 0.269592588344241,
-    "minor_radius_mean": 0.34680566771769283,
-    "minor_radius_std": 0.19491208082149675,
-    "minor_radius_cv": 0.5620210202560735
+    "major_radius_mean": 1.053391371025706,
+    "major_radius_std": 0.2614973935307831,
+    "major_radius_cv": 0.24824333883969932,
+    "minor_radius_mean": 0.36060572551085124,
+    "minor_radius_std": 0.18889626239196775,
+    "minor_radius_cv": 0.5238304435850648
   },
   "Predictive ablated": {
-    "rmse_cm": 36.2320750951767,
-    "step_rmse_cm": 6.932219287835643,
+    "rmse_cm": 37.77839541435242,
+    "step_rmse_cm": 7.158762355091166,
     "radius_cv": {
-      "r1_cv": 0.62764249006599,
-      "r2_cv": 0.6049166005331046
+      "r1_cv": 0.6353398150247817,
+      "r2_cv": 0.6044300886608752
     },
-    "major_radius_mean": 1.201131483850971,
-    "major_radius_std": 0.27486095889694495,
-    "major_radius_cv": 0.22883502789166563,
-    "minor_radius_mean": 0.3551626432605359,
-    "minor_radius_std": 0.22248877719087803,
-    "minor_radius_cv": 0.6264419277993946
+    "major_radius_mean": 1.171051672713202,
+    "major_radius_std": 0.26667940268102686,
+    "major_radius_cv": 0.22772641602218535,
+    "minor_radius_mean": 0.37047304361107863,
+    "minor_radius_std": 0.2269530875489456,
+    "minor_radius_cv": 0.612603495279309
   },
   "Retrospective ablated": {
-    "rmse_cm": 41.487738490104675,
-    "step_rmse_cm": 7.286754640419206,
+    "rmse_cm": 40.243056416511536,
+    "step_rmse_cm": 6.600407167909165,
     "radius_cv": {
-      "r1_cv": 0.5456472604690382,
-      "r2_cv": 0.5507913983185936
+      "r1_cv": 0.58553448690768,
+      "r2_cv": 0.5454775393769203
     },
-    "major_radius_mean": 1.0978305797947605,
-    "major_radius_std": 0.34083670679021516,
-    "major_radius_cv": 0.310463845659406,
-    "minor_radius_mean": 0.38181678807445,
-    "minor_radius_std": 0.21502678222531912,
-    "minor_radius_cv": 0.5631674229885278
+    "major_radius_mean": 0.9955039111735872,
+    "major_radius_std": 0.2754443792183654,
+    "major_radius_cv": 0.2766883920393276,
+    "minor_radius_mean": 0.3739620294285596,
+    "minor_radius_std": 0.20336151057148952,
+    "minor_radius_cv": 0.5438025498048954
+  },
+  "Normal grid ablated": {
+    "rmse_cm": 40.62529802322388,
+    "step_rmse_cm": 6.605109302442718,
+    "radius_cv": {
+      "r1_cv": 0.6110865243081883,
+      "r2_cv": 0.5524392189762888
+    },
+    "major_radius_mean": 1.0216324389835614,
+    "major_radius_std": 0.27230739700902284,
+    "major_radius_cv": 0.2665414526329365,
+    "minor_radius_mean": 0.3673740832274092,
+    "minor_radius_std": 0.20405780202872767,
+    "minor_radius_cv": 0.5554496242129227
   }
 }

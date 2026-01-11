@@ -40,18 +40,16 @@ def compute_shuffle_thresholds(xs: np.ndarray,
                                seed: int):
     """Estimate chance-level gridness per (lag, unit) via shuffled activations."""
     rng = np.random.default_rng(seed)
-    flat = activations.reshape(-1, activations.shape[-1])
-    shuffle_scores = np.empty((trials, len(lags), activations.shape[-1]), dtype=np.float32)
+    shuffle_scores = np.empty((trials, activations.shape[-1]), dtype=np.float32)
     for i in range(trials):
-        perm = rng.permutation(flat.shape[0])
-        shuffled = flat[perm].reshape(activations.shape)
-        s60, _ = scorer.predictive_grid_scores(xs, ys, shuffled, lags)
-        shuffle_scores[i] = s60.astype(np.float32)
+        perm = rng.permutation(activations.shape[0])
+        shuffled = activations[perm, :, :]
+        s60, _ = scorer.predictive_grid_scores(xs, ys, shuffled, [0])
+        shuffle_scores[i, :] = s60.astype(np.float32)
     percentile = 100.0 * (1.0 - alpha)
     thresholds = np.percentile(shuffle_scores, percentile, axis=0)
-    mean = np.mean(shuffle_scores, axis=0)
-    std = np.std(shuffle_scores, axis=0)
-    return thresholds, mean, std
+    
+    return thresholds 
 
 
 def classify_units(zero_scores: np.ndarray,
@@ -67,12 +65,12 @@ def classify_units(zero_scores: np.ndarray,
     peak_mask = np.isfinite(best_scores) & (best_scores >= shift_threshold)
     shift_mask = np.isfinite(best_shift_cm)
     if zero_significant is not None:
-        zero_mask &= zero_significant
+        zero_mask = zero_significant
     if best_significant is not None:
-        peak_mask &= best_significant
+        peak_mask = best_significant
 
-    predictive = zero_mask & peak_mask & shift_mask & (best_shift_cm >= min_shift_cm)
-    retrospective = zero_mask & peak_mask & shift_mask & (best_shift_cm <= -min_shift_cm)
+    predictive = ~zero_mask & peak_mask & shift_mask & (best_shift_cm >= min_shift_cm)
+    retrospective = ~zero_mask & peak_mask & shift_mask & (best_shift_cm <= -min_shift_cm)
     zero_lag = zero_mask & peak_mask & shift_mask & (np.abs(best_shift_cm) < min_shift_cm)
     low_grid = ~(zero_mask & peak_mask)
     other = ~(predictive | retrospective | zero_lag | low_grid)
@@ -220,7 +218,7 @@ def summarize_checkpoint(args) -> Dict[str, float]:
     shuffle_std = None
     shuffle_significance = None
     if args.shuffle_trials > 0:
-        shuffle_thresholds, shuffle_mean, shuffle_std = compute_shuffle_thresholds(
+        shuffle_thresholds = compute_shuffle_thresholds(
             xs,
             ys,
             activations,
@@ -313,7 +311,7 @@ def summarize_checkpoint(args) -> Dict[str, float]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint_path", required=True, help="Path to a trained model (.pth).")
+    parser.add_argument("--checkpoint_path", default = "/Users/wredman/Documents/GitHub/predictive-grid-cell-analysis/Models/Single agent path integration/Seed 2 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/final_model.pth", help="Path to a trained model (.pth).")
     parser.add_argument("--out_dir", default=None, help="Optional directory override for outputs.")
     parser.add_argument("--batch_size", default=100, type=int)
     parser.add_argument("--sequence_length", default=20, type=int)
@@ -326,7 +324,7 @@ def main():
     parser.add_argument("--learning_rate", default=1e-4, type=float)
     parser.add_argument("--res", default=20, type=int)
     parser.add_argument("--n_batches", default=25, type=int, help="How many trajectory batches to aggregate.")
-    parser.add_argument("--Ng_use", default=512, type=int, help="How many units to score.")
+    parser.add_argument("--Ng_use", default=4096, type=int, help="How many units to score.")
     parser.add_argument("--traj_speed_scale", default=1.0, type=float)
     parser.add_argument("--traj_speed_max", default=None, type=float)
     parser.add_argument("--traj_velocity_smoothing", default=0.0, type=float)
@@ -337,8 +335,8 @@ def main():
     parser.add_argument("--gridness_threshold", default=0.5, type=float, help="Minimum gridness at the preferred shift.")
     parser.add_argument("--zero_shift_threshold", default=0.5, type=float, help="Minimum gridness at zero shift.")
     parser.add_argument("--min_shift_cm", default=5.0, type=float, help="Minimum |shift| (cm) to call a unit predictive/retrospective.")
-    parser.add_argument("--max_lag", default=20, type=int, help="Evaluate lags from -max_lag to +max_lag.")
-    parser.add_argument("--shuffle_trials", default=0, type=int, help="Number of shuffle permutations (0 disables significance testing).")
+    parser.add_argument("--max_lag", default=10, type=int, help="Evaluate lags from -max_lag to +max_lag.")
+    parser.add_argument("--shuffle_trials", default=100, type=int, help="Number of shuffle permutations (0 disables significance testing).")
     parser.add_argument("--shuffle_alpha", default=0.05, type=float, help="Tail probability for shuffle thresholds.")
     parser.add_argument("--shuffle_seed", default=0, type=int)
     parser.add_argument("--device", default=None, help="Set to 'cpu' or 'cuda'. Defaults to best available.")

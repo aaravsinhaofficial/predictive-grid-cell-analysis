@@ -21,7 +21,7 @@ The training script now lets you control how predictable the agent’s motion is
 ### Example commands
 Predictable “lazy” regime (straight, fixed speed, low turn noise) with per-epoch grid checks:
 ```bash
-python main.py \
+python code/main.py \
   --n_epochs 50 --n_steps 250 \
   --trajectory_style straight --trajectory_fixed_speed 0.8 \
   --trajectory_turn_sigma_scale 0.1 --trajectory_velocity_smoothing 0.2 \
@@ -31,7 +31,7 @@ python main.py \
 
 Rich/structure-seeking regime (max unpredictability):
 ```bash
-python main.py \
+python code/main.py \
   --n_epochs 50 --n_steps 250 \
   --trajectory_style per_step_random --trajectory_velocity_smoothing 0 \
   --trajectory_turn_sigma_scale 2.0 --trajectory_speed_scale 1.0 \

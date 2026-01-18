@@ -311,7 +311,7 @@ def summarize_checkpoint(args) -> Dict[str, float]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint_path", default = "/Users/wredman/Documents/GitHub/predictive-grid-cell-analysis/Models/Single agent path integration/Seed 2 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/final_model.pth", help="Path to a trained model (.pth).")
+    parser.add_argument("--checkpoint_path", default = "/Users/wredman/Documents/GitHub/predictive-grid-cell-analysis/Models/Straight trajectories/Seed 0 weight decay 1e-04/steps_20_batch_200_Ng_4096_relu_lr_00001_weight_decay_00001_shape_22x22_straightness_10_trajectory_style_straight/final_model.pth", help="Path to a trained model (.pth).")
     parser.add_argument("--out_dir", default=None, help="Optional directory override for outputs.")
     parser.add_argument("--batch_size", default=100, type=int)
     parser.add_argument("--sequence_length", default=20, type=int)
@@ -332,6 +332,7 @@ def main():
     parser.add_argument("--traj_border_region", default=0.03, type=float)
     parser.add_argument("--traj_wall_slowdown", default=0.25, type=float)
     parser.add_argument("--traj_wall_turn_scale", default=1.0, type=float)
+    parser.add_argument("--trajectory_style", default = 'random_walk')
     parser.add_argument("--gridness_threshold", default=0.5, type=float, help="Minimum gridness at the preferred shift.")
     parser.add_argument("--zero_shift_threshold", default=0.5, type=float, help="Minimum gridness at zero shift.")
     parser.add_argument("--min_shift_cm", default=5.0, type=float, help="Minimum |shift| (cm) to call a unit predictive/retrospective.")

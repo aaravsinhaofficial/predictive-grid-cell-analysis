@@ -189,6 +189,11 @@ def summarize_checkpoint(args) -> Dict[str, float]:
     Ng, Np, velocity_dim = infer_dims_from_state(state)
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     options = build_options(args, (Ng, Np, velocity_dim), device, args.checkpoint_path)
+    options.trajectory_style = args.trajectory_style
+    if args.trajectory_style == "straight":
+        options.trajectory_fixed_speed = args.trajectory_fixed_speed
+    else:
+        options.trajectory_fixed_speed = None
 
     place_cells = PlaceCells(options)
     model = RNN(options, place_cells).to(options.device)
@@ -262,6 +267,8 @@ def summarize_checkpoint(args) -> Dict[str, float]:
     summary = {
         "checkpoint": args.checkpoint_path,
         "cm_per_step": float(cm_step),
+        "trajectory_style": args.trajectory_style,
+        "trajectory_fixed_speed": args.trajectory_fixed_speed if args.trajectory_fixed_speed is not None else None,
         "gridness_threshold": args.gridness_threshold,
         "zero_shift_threshold": args.zero_shift_threshold,
         "min_shift_cm": args.min_shift_cm,
@@ -336,6 +343,18 @@ def main():
     parser.add_argument("--traj_border_region", default=0.03, type=float)
     parser.add_argument("--traj_wall_slowdown", default=0.25, type=float)
     parser.add_argument("--traj_wall_turn_scale", default=1.0, type=float)
+    parser.add_argument(
+        "--trajectory_style",
+        default="random_walk",
+        choices=["random_walk", "straight", "per_step_random"],
+        help="Trajectory style used to generate evaluation data.",
+    )
+    parser.add_argument(
+        "--trajectory_fixed_speed",
+        default=None,
+        type=float,
+        help="Fixed speed (m/s) when using --trajectory_style straight.",
+    )
     parser.add_argument("--gridness_threshold", default=0.5, type=float, help="Minimum gridness at the preferred shift.")
     parser.add_argument("--zero_shift_threshold", default=0.5, type=float, help="Minimum gridness at zero shift.")
     parser.add_argument("--min_shift_cm", default=5.0, type=float, help="Minimum |shift| (cm) to call a unit predictive/retrospective.")
@@ -351,8 +370,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
 
 

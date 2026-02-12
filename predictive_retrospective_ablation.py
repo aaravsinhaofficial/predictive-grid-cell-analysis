@@ -12,6 +12,7 @@ import glob
 import json
 import math
 import os
+from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -22,6 +23,7 @@ import torch
 from model import RNN
 from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
+from path_utils import analysis_dir_for_checkpoint, analysis_summary_dir, model_name_from_checkpoint
 from multi_seed_predictive_analysis import (
     build_options,
     infer_dims_from_state,
@@ -72,8 +74,8 @@ def extract_state(raw: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
 
 def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
     """Load cached gridness data; raises if missing."""
-    out_dir = os.path.join(os.path.dirname(ckpt_path), "analysis_outputs")
-    grid_path = os.path.join(out_dir, "gridness_data.npz")
+    out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    grid_path = out_dir / "gridness_data.npz"
     if not os.path.exists(grid_path):
         raise FileNotFoundError(
             f"Missing gridness_data.npz beside checkpoint: {grid_path}. "
@@ -374,6 +376,202 @@ def plot_fixed_count_lines(results: List[Dict], counts: Sequence[int], save_path
     plt.close(fig)
 
 
+def plot_full_ablation_summary(results: List[Dict], percentiles: Sequence[float], save_path: str) -> None:
+    """Summarize baseline vs full-class ablations at the largest percentile."""
+    if not percentiles:
+        return
+    target = max(percentiles)
+    try:
+        idx = list(percentiles).index(target)
+    except ValueError:
+        return
+
+    labels = ["baseline", "predictive", "retrospective", "normal"]
+    colors = {
+        "baseline": "#7a7a7a",
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
+    }
+
+    values: Dict[str, List[float]] = {k: [] for k in labels}
+    for r in results:
+        baseline = r.get("baseline_error_cm")
+        if baseline is not None and math.isfinite(baseline):
+            values["baseline"].append(float(baseline))
+        for label in ("predictive", "retrospective", "normal"):
+            vals = r.get("errors", {}).get(label, [])
+            if len(vals) > idx and vals[idx] is not None and math.isfinite(vals[idx]):
+                values[label].append(float(vals[idx]))
+
+    means = []
+    sems = []
+    for label in labels:
+        arr = np.array(values[label], dtype=float)
+        if arr.size == 0:
+            means.append(math.nan)
+            sems.append(0.0)
+        else:
+            means.append(float(np.nanmean(arr)))
+            sems.append(float(np.nanstd(arr, ddof=1) / np.sqrt(arr.size)))
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    x = np.arange(len(labels))
+    bars = ax.bar(
+        x,
+        means,
+        yerr=sems,
+        color=[colors[l] for l in labels],
+        alpha=0.85,
+        capsize=4,
+        edgecolor="black",
+        linewidth=0.6,
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels([l.title() for l in labels])
+    ax.set_ylabel("Decoding error (cm)")
+    ax.set_title(f"Path integration error at {target:.0f}% ablation")
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+
+
+def _percentile_indices(percentiles: Sequence[float], targets: Sequence[float]) -> Dict[float, int]:
+    idxs: Dict[float, int] = {}
+    for target in targets:
+        if target in percentiles:
+            idxs[target] = list(percentiles).index(target)
+    return idxs
+
+
+def plot_full_ablation_summary_percentiles(
+    results: List[Dict],
+    percentiles: Sequence[float],
+    targets: Sequence[float],
+    save_path: str,
+) -> None:
+    """Summarize baseline vs ablations at specific percentiles."""
+    idxs = _percentile_indices(percentiles, targets)
+    if len(idxs) != len(targets):
+        missing = [str(t) for t in targets if t not in idxs]
+        print(f"[predictive_retrospective_ablation] Skipping summary; missing percentiles: {', '.join(missing)}")
+        return
+
+    labels = ["baseline", "predictive", "retrospective", "normal"]
+    colors = {
+        "baseline": "#7a7a7a",
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
+    }
+    fig, axes = plt.subplots(1, len(targets), figsize=(4.6 * len(targets), 4.2), sharey=True)
+    if len(targets) == 1:
+        axes = [axes]
+
+    for ax, target in zip(axes, targets):
+        idx = idxs[target]
+        values: Dict[str, List[float]] = {k: [] for k in labels}
+        for r in results:
+            baseline = r.get("baseline_error_cm")
+            if baseline is not None and math.isfinite(baseline):
+                values["baseline"].append(float(baseline))
+            for label in ("predictive", "retrospective", "normal"):
+                vals = r.get("errors", {}).get(label, [])
+                if len(vals) > idx and vals[idx] is not None and math.isfinite(vals[idx]):
+                    values[label].append(float(vals[idx]))
+
+        means = []
+        sems = []
+        for label in labels:
+            arr = np.array(values[label], dtype=float)
+            if arr.size == 0:
+                means.append(math.nan)
+                sems.append(0.0)
+            else:
+                means.append(float(np.nanmean(arr)))
+                sems.append(float(np.nanstd(arr, ddof=1) / np.sqrt(arr.size)))
+
+        x = np.arange(len(labels))
+        ax.bar(
+            x,
+            means,
+            yerr=sems,
+            color=[colors[l] for l in labels],
+            alpha=0.85,
+            capsize=4,
+            edgecolor="black",
+            linewidth=0.6,
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels([l.title() for l in labels], rotation=20)
+        ax.set_title(f"{target:.0f}% ablation")
+        ax.grid(axis="y", alpha=0.3)
+
+    axes[0].set_ylabel("Decoding error (cm)")
+    fig.suptitle("Path integration error at selected ablations", y=1.02)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_seed_ablation_summaries(
+    results: List[Dict],
+    percentiles: Sequence[float],
+    targets: Sequence[float],
+    output_dir: str,
+) -> None:
+    """Per-seed ablation summaries at selected percentiles."""
+    idxs = _percentile_indices(percentiles, targets)
+    if len(idxs) != len(targets):
+        missing = [str(t) for t in targets if t not in idxs]
+        print(f"[predictive_retrospective_ablation] Skipping per-seed summaries; missing percentiles: {', '.join(missing)}")
+        return
+    labels = ["baseline", "predictive", "retrospective", "normal"]
+    colors = {
+        "baseline": "#7a7a7a",
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
+    }
+    os.makedirs(output_dir, exist_ok=True)
+    for r in results:
+        seed = r.get("seed", "unknown")
+        fig, axes = plt.subplots(1, len(targets), figsize=(4.6 * len(targets), 4.2), sharey=True)
+        if len(targets) == 1:
+            axes = [axes]
+        for ax, target in zip(axes, targets):
+            idx = idxs[target]
+            vals = []
+            baseline = r.get("baseline_error_cm")
+            vals.append(float(baseline) if baseline is not None else math.nan)
+            for label in ("predictive", "retrospective", "normal"):
+                arr = r.get("errors", {}).get(label, [])
+                val = arr[idx] if len(arr) > idx else math.nan
+                vals.append(float(val) if val is not None else math.nan)
+            x = np.arange(len(labels))
+            ax.bar(
+                x,
+                vals,
+                color=[colors[l] for l in labels],
+                alpha=0.85,
+                edgecolor="black",
+                linewidth=0.6,
+            )
+            ax.set_xticks(x)
+            ax.set_xticklabels([l.title() for l in labels], rotation=20)
+            ax.set_title(f"{target:.0f}% ablation")
+            ax.grid(axis="y", alpha=0.3)
+        axes[0].set_ylabel("Decoding error (cm)")
+        fig.suptitle(f"Seed {seed}: path integration error", y=1.02)
+        fig.tight_layout()
+        out_path = os.path.join(output_dir, f"path_integration_ablation_summary_seed_{seed}.png")
+        fig.savefig(out_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+
 def save_results_json(results: List[Dict], percentiles: Sequence[float], counts: Sequence[int], save_path: str) -> None:
     payload = {
         "percentiles": list(percentiles),
@@ -411,8 +609,11 @@ def main():
     parser.add_argument("--gridness_threshold", default=0.2, type=float,
                         help="Minimum gridness for class membership (tighter = fewer units).")
     parser.add_argument("--device", default=None, help="Override device (cpu/cuda).")
-    parser.add_argument("--output_dir", default="analysis_outputs/predictive_retrospective_ablation",
-                        help="Directory to store figures/results.")
+    parser.add_argument(
+        "--output_dir",
+        default=None,
+        help="Directory to store figures/results (defaults to analysis_outputs/<model>/summary/predictive_retrospective_ablation).",
+    )
     parser.add_argument("--traj_speed_scale", default=1.0, type=float,
                         help="Multiplier on the Rayleigh speed scale (1.0 = default).")
     parser.add_argument("--traj_speed_max", default=None, type=float,
@@ -469,10 +670,27 @@ def main():
         res = run_ablation_for_checkpoint(ckpt, args, percentiles, COMBOS, count_targets)
         results.append(res)
 
+    if args.output_dir is None:
+        model_name = model_name_from_checkpoint(Path(checkpoints[0]))
+        args.output_dir = str(analysis_summary_dir(model_name, "predictive_retrospective_ablation"))
+
     os.makedirs(args.output_dir, exist_ok=True)
     save_results_json(results, percentiles, count_targets, os.path.join(args.output_dir, "results.json"))
     plot_single_class_lines(results, percentiles, os.path.join(args.output_dir, "single_class_ablation.png"))
     plot_combo_heatmap(results, percentiles, os.path.join(args.output_dir, "combo_heatmap.png"))
+    plot_full_ablation_summary(results, percentiles, os.path.join(args.output_dir, "path_integration_ablation_summary.png"))
+    plot_full_ablation_summary_percentiles(
+        results,
+        percentiles,
+        [25.0, 75.0, 100.0],
+        os.path.join(args.output_dir, "path_integration_ablation_summary_p25_p75_p100.png"),
+    )
+    plot_seed_ablation_summaries(
+        results,
+        percentiles,
+        [25.0, 75.0, 100.0],
+        os.path.join(args.output_dir, "path_integration_ablation_seeds_p25_p75_p100"),
+    )
     if count_targets:
         plot_fixed_count_lines(results, count_targets, os.path.join(args.output_dir, "fixed_count_ablation.png"))
 

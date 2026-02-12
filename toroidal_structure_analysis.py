@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Toroidal manifold analysis with predictive/retrospective/normal ablations.
+"""Toroidal manifold analysis with toroidal/predictive/retrospective/normal ablations.
 
 This script:
   1) extracts a torus parameterization from grid-cell rate maps,
-  2) projects hidden activity onto toroidal coordinates,
-  3) compares baseline vs predictive/retrospective/normal grid-cell ablations.
+  2) finds the toroidal-cell ensemble via rotational autocorrelogram clustering,
+  3) projects hidden activity onto toroidal coordinates,
+  4) compares baseline vs toroidal/predictive/retrospective/normal grid-cell ablations.
 
-Outputs are written beside the checkpoint under analysis_outputs/torus/:
-  - torus_comparison.png : 3D point clouds for each condition (baseline / PGC ablated / RGC ablated / normal ablated)
+Outputs are written under analysis_outputs/<model>/<seed>/<run>/torus/:
+  - torus_comparison.png : 3D point clouds for each condition (baseline / toroidal / PGC ablated / RGC ablated / normal ablated)
   - torus_metrics.json   : lattice vectors, unit counts, radius variation, phase-to-position decoding errors
+  - toroidal_embedding.png: UMAP/PCA + DBSCAN view used to pick toroidal cells
 """
 
 from __future__ import annotations
@@ -16,7 +18,9 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import os
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple, Optional
 
@@ -26,12 +30,19 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
+import scipy.ndimage as ndimage
+from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import StandardScaler
 
 from model import RNN
+from path_utils import analysis_dir_for_checkpoint
 from place_cells import PlaceCells
 from predictive_retrospective_ablation import classify_from_scores
 from trajectory_generator import TrajectoryGenerator
 from visualize import compute_ratemaps
+from scores import GridScorer
 from multi_seed_predictive_analysis import (
     build_options,
     collect_eval_batches,
@@ -67,6 +78,20 @@ class TorusProjection:
     rmse_cm: float
     step_rmse_cm: float
     radius_cv: Dict[str, float]
+
+
+@dataclass
+class ToroidalDetection:
+    units: np.ndarray
+    labels: np.ndarray
+    embedding: np.ndarray
+    clusters: Dict[int, Dict[str, float]]
+    selected_clusters: List[int]
+    angles_deg: List[float]
+    ring_bounds: Tuple[float, float]
+    eps: float
+    min_samples: int
+    embedding_method: str
 
 
 # --------------------------------------------------------------------------------------
@@ -232,7 +257,7 @@ def run_condition(
     """Compute torus projection (and decoding error) for one ablation condition."""
     model = RNN(options, place_cells).to(device)
     model.load_state_dict(copy.deepcopy(base_state))
-    if ablate_units:
+    if ablate_units is not None and len(ablate_units) > 0:
         zero_unit_weights_in_place(model, ablate_units)
     model.eval()
 
@@ -256,6 +281,277 @@ def run_condition(
     proj.rmse_cm = rmse_cm
     proj.step_rmse_cm = step_rmse_cm
     return proj
+
+
+# --------------------------------------------------------------------------------------
+# Toroidal-cell detection
+# --------------------------------------------------------------------------------------
+
+def _rotation_profile_from_sac(sac: np.ndarray, angles_deg: Sequence[float], mask: np.ndarray) -> np.ndarray:
+    """Correlation of SAC with rotated copies (rotational autocorrelogram)."""
+    masked = sac * mask
+    base = masked.ravel()
+    base -= np.mean(base)
+    base_norm = np.linalg.norm(base) + 1e-8
+    prof = []
+    for ang in angles_deg:
+        rot = ndimage.rotate(sac, ang, reshape=False, order=1, mode="nearest")
+        rot_masked = (rot * mask).ravel()
+        rot_masked -= np.mean(rot_masked)
+        denom = (np.linalg.norm(rot_masked) + 1e-8) * base_norm
+        prof.append(float(np.dot(base, rot_masked) / denom))
+    return np.array(prof, dtype=float)
+
+
+def _mean_orientation(angles_rad: np.ndarray) -> float:
+    """Circular mean for orientations (mod π)."""
+    if angles_rad.size == 0:
+        return float("nan")
+    s = np.mean(np.sin(2 * angles_rad))
+    c = np.mean(np.cos(2 * angles_rad))
+    return float(0.5 * np.mod(np.arctan2(s, c), 2 * np.pi))
+
+
+def compute_rotational_features(
+    rate_maps: np.ndarray,
+    box_width: float,
+    angles_deg: Sequence[float],
+    ring_bounds: Tuple[float, float],
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    """Return feature matrix + metadata for rotational autocorrelograms."""
+    res = rate_maps.shape[1]
+    coord_range = ((-box_width / 2, box_width / 2), (-box_width / 2, box_width / 2))
+    scorer = GridScorer(res, coord_range, [ring_bounds])
+    mask = scorer._get_ring_mask(*ring_bounds)  # type: ignore[attr-defined]
+    angles_rad = np.deg2rad(angles_deg)
+    band_template = np.cos(2 * angles_rad)
+    tri_template = np.cos(3 * angles_rad)
+
+    features = []
+    profiles = []
+    band_scores = []
+    tri_scores = []
+    anisotropy = []
+    peak_angles = []
+    for rm in rate_maps:
+        sac = scorer.calculate_sac(rm)
+        prof = _rotation_profile_from_sac(sac, angles_deg, mask)
+        profiles.append(prof)
+        prof_norm = (prof - np.mean(prof)) / (np.std(prof) + 1e-8)
+        band_corr = float(np.corrcoef(prof_norm, band_template)[0, 1])
+        tri_corr = float(np.corrcoef(prof_norm, tri_template)[0, 1])
+        band_scores.append(band_corr)
+        tri_scores.append(tri_corr)
+
+        spectrum = np.fft.fftshift(np.fft.fft2(rm - np.nanmean(rm)))
+        power = np.abs(spectrum)
+        center = res // 2
+        power[center - 1 : center + 2, center - 1 : center + 2] = 0
+        peak_idx = np.unravel_index(np.argmax(power), power.shape)
+        freqs = np.fft.fftshift(np.fft.fftfreq(res, d=box_width / res))
+        kx = freqs[peak_idx[0]]
+        ky = freqs[peak_idx[1]]
+        ang = float(np.mod(np.arctan2(ky, kx), np.pi))
+        peak_angles.append(ang)
+        peak_power = float(power[peak_idx])
+        anis_val = peak_power / (float(np.mean(power)) + 1e-8)
+        anisotropy.append(anis_val)
+
+        feat_vec = np.concatenate(
+            [
+                prof_norm,
+                np.array([band_corr, tri_corr, anis_val, math.sin(ang), math.cos(ang)], dtype=float),
+            ]
+        )
+        features.append(feat_vec)
+
+    meta = {
+        "profiles": np.array(profiles, dtype=float),
+        "band_score": np.array(band_scores, dtype=float),
+        "grid_like_score": np.array(tri_scores, dtype=float),
+        "anisotropy": np.array(anisotropy, dtype=float),
+        "peak_angle": np.array(peak_angles, dtype=float),
+    }
+    return np.array(features, dtype=float), meta
+
+
+def embed_rotations(features: np.ndarray, mode: str = "auto", random_state: int = 0) -> Tuple[np.ndarray, str]:
+    """Embed rotational features via UMAP (preferred) or PCA."""
+    feats_std = StandardScaler().fit_transform(features)
+    mode = (mode or "auto").lower()
+    if mode == "pca":
+        return PCA(n_components=2, random_state=random_state).fit_transform(feats_std), "pca"
+    if mode == "umap":
+        try:
+            import umap  # type: ignore
+        except ImportError:
+            return PCA(n_components=2, random_state=random_state).fit_transform(feats_std), "pca"
+        reducer = umap.UMAP(
+            n_components=2,
+            n_neighbors=25,
+            min_dist=0.1,
+            metric="cosine",
+            random_state=random_state,
+        )
+        return reducer.fit_transform(feats_std), "umap"
+
+    try:
+        import umap  # type: ignore
+        reducer = umap.UMAP(
+            n_components=2,
+            n_neighbors=25,
+            min_dist=0.1,
+            metric="cosine",
+            random_state=random_state,
+        )
+        return reducer.fit_transform(feats_std), "umap"
+    except ImportError:
+        return PCA(n_components=2, random_state=random_state).fit_transform(feats_std), "pca"
+
+
+def cluster_embedding(embedding: np.ndarray, min_samples: int = 6, eps: float | None = None) -> Tuple[np.ndarray, float]:
+    """DBSCAN clustering with adaptive eps when not provided."""
+    if embedding.shape[0] < 2:
+        return np.full(embedding.shape[0], -1, dtype=int), 0.0
+    emb_std = StandardScaler().fit_transform(embedding)
+    if eps is None:
+        k = min(10, embedding.shape[0] - 1)
+        nbrs = NearestNeighbors(n_neighbors=k).fit(emb_std)
+        kth = np.sort(nbrs.kneighbors(emb_std)[0][:, -1])
+        eps = float(np.median(kth) * 1.2)
+    labels = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(emb_std)
+    return labels, float(eps)
+
+
+def _orientation_distance(a: float, b: float) -> float:
+    diff = abs(a - b)
+    return min(diff, math.pi - diff)
+
+
+def select_toroidal_clusters(
+    labels: np.ndarray,
+    meta: Dict[str, np.ndarray],
+    unit_indices: np.ndarray,
+    desired: int = 3,
+    band_floor: float = 0.15,
+    min_size: int = 4,
+) -> Tuple[np.ndarray, Dict[int, Dict[str, float]], List[int]]:
+    """Pick up to `desired` DBSCAN clusters that look band-like."""
+    unique = [l for l in np.unique(labels) if l >= 0]
+    clusters: Dict[int, Dict[str, float]] = {}
+    for lab in unique:
+        idxs = np.where(labels == lab)[0]
+        angles = meta["peak_angle"][idxs]
+        clusters[lab] = {
+            "size": int(idxs.size),
+            "band_score_mean": float(np.nanmean(meta["band_score"][idxs])) if idxs.size else float("nan"),
+            "grid_like_mean": float(np.nanmean(meta["grid_like_score"][idxs])) if idxs.size else float("nan"),
+            "anisotropy_mean": float(np.nanmean(meta["anisotropy"][idxs])) if idxs.size else float("nan"),
+            "angle_mean_rad": _mean_orientation(angles) if idxs.size else float("nan"),
+            "indices_local": idxs.tolist(),
+            "indices_global": unit_indices[idxs].astype(int).tolist(),
+        }
+
+    def _score(lab: int) -> float:
+        info = clusters[lab]
+        return info["band_score_mean"] * max(info["anisotropy_mean"], 1e-4)
+
+    candidates = sorted(unique, key=_score, reverse=True)
+    selected: List[int] = []
+    for lab in candidates:
+        info = clusters[lab]
+        if info["size"] < min_size or info["band_score_mean"] < band_floor:
+            continue
+        if selected and any(_orientation_distance(info["angle_mean_rad"], clusters[s]["angle_mean_rad"]) < math.radians(20) for s in selected):
+            continue
+        selected.append(lab)
+        if len(selected) >= desired:
+            break
+
+    if len(selected) < desired:
+        fillers = sorted(unique, key=lambda l: clusters[l]["size"], reverse=True)
+        for lab in fillers:
+            if lab not in selected:
+                selected.append(lab)
+            if len(selected) >= desired:
+                break
+
+    if not selected:
+        return np.array([], dtype=int), clusters, selected
+
+    toroidal_units = np.unique(np.concatenate([unit_indices[labels == lab] for lab in selected if lab in clusters], axis=0))
+    return toroidal_units.astype(int), clusters, selected
+
+
+def plot_toroidal_embedding(
+    embedding: np.ndarray,
+    labels: np.ndarray,
+    toroidal_units: np.ndarray,
+    unit_indices: np.ndarray,
+    save_path: str,
+) -> None:
+    """Scatter of embedding colored by DBSCAN clusters with toroidal cells highlighted."""
+    if embedding.size == 0:
+        return
+    uniq = np.unique(labels)
+    cmap = plt.cm.get_cmap("tab10")
+    fig, ax = plt.subplots(figsize=(6.0, 5.0))
+    for lab in uniq:
+        mask = labels == lab
+        color = "#bbbbbb" if lab == -1 else cmap(lab % 10)
+        label = f"Cluster {lab}" if lab >= 0 else "Noise"
+        ax.scatter(embedding[mask, 0], embedding[mask, 1], s=28, c=color, alpha=0.7, edgecolors="none", label=label)
+    if toroidal_units.size:
+        sel = np.isin(unit_indices, toroidal_units)
+        ax.scatter(
+            embedding[sel, 0],
+            embedding[sel, 1],
+            s=60,
+            facecolors="none",
+            edgecolors="black",
+            linewidths=1.2,
+            label=f"Toroidal (n={toroidal_units.size})",
+        )
+    ax.set_xlabel("Embedding dim 1")
+    ax.set_ylabel("Embedding dim 2")
+    ax.set_title("Rotational-profile embedding (DBSCAN clusters)")
+    ax.legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    fig.savefig(save_path, dpi=220)
+    plt.close(fig)
+
+
+def identify_toroidal_cells(
+    rate_maps: np.ndarray,
+    unit_indices: np.ndarray,
+    box_width: float,
+    out_dir: str,
+    angles_deg: Optional[Sequence[float]] = None,
+    ring_bounds: Tuple[float, float] = (0.18, 0.55),
+    random_state: int = 0,
+    embed_mode: str = "auto",
+) -> ToroidalDetection:
+    """UMAP/DBSCAN-based toroidal ensemble finder."""
+    if angles_deg is None:
+        angles_deg = np.linspace(0, 180, 36, endpoint=False)
+    features, meta = compute_rotational_features(rate_maps, box_width, angles_deg, ring_bounds)
+    embedding, method = embed_rotations(features, mode=embed_mode, random_state=random_state)
+    labels, eps = cluster_embedding(embedding)
+    toroidal_units, clusters, selected = select_toroidal_clusters(labels, meta, unit_indices)
+    plot_toroidal_embedding(embedding, labels, toroidal_units, unit_indices, os.path.join(out_dir, "toroidal_embedding.png"))
+    return ToroidalDetection(
+        units=toroidal_units,
+        labels=labels,
+        embedding=embedding,
+        clusters=clusters,
+        selected_clusters=selected,
+        angles_deg=list(angles_deg),
+        ring_bounds=ring_bounds,
+        eps=eps,
+        min_samples=6,
+        embedding_method=method,
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -286,7 +582,7 @@ def plot_torus_comparison(
     x_norm = (flat_pos[:, 0] - flat_pos[:, 0].min()) / (flat_pos[:, 0].ptp() + 1e-8)
 
     # Primary view
-    fig = plt.figure(figsize=(14, 4.5))
+    fig = plt.figure(figsize=(max(14, 3.6 * len(titles)), 4.5))
     for idx, name in enumerate(titles):
         proj = projections[name]
         coords, color = _subsample(proj.coords3d, x_norm, sample)
@@ -334,8 +630,12 @@ def plot_torus_seaborn(projections: Dict[str, TorusProjection], save_path: str, 
         df = pd.DataFrame({"x": coords[:, 0], "y": coords[:, 1], "z": coords[:, 2]})
         sns.scatterplot(ax=axes[i, 0], data=df, x="x", y="y", hue="z", palette="viridis", s=5, linewidth=0, legend=False)
         axes[i, 0].set_title(f"{name}: XY scatter (colored by z)")
-        sns.kdeplot(ax=axes[i, 1], data=df, x="x", y="y", fill=True, cmap="mako")
-        axes[i, 1].set_title(f"{name}: XY density")
+        try:
+            sns.kdeplot(ax=axes[i, 1], data=df, x="x", y="y", fill=True, cmap="mako", levels=30, thresh=0.0)
+            axes[i, 1].set_title(f"{name}: XY density")
+        except ValueError:
+            sns.scatterplot(ax=axes[i, 1], data=df, x="x", y="y", s=4, color="#4b4b4b", alpha=0.5, linewidth=0)
+            axes[i, 1].set_title(f"{name}: XY density (scatter fallback)")
         for ax in axes[i]:
             ax.set_xticks([])
             ax.set_yticks([])
@@ -390,7 +690,7 @@ def plot_ring_diagnostics(samples: Dict[str, Tuple[np.ndarray, np.ndarray]], sav
 # --------------------------------------------------------------------------------------
 
 def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
-    out_dir = os.path.join(os.path.dirname(ckpt_path), "analysis_outputs")
+    out_dir = str(analysis_dir_for_checkpoint(Path(ckpt_path)))
     path = os.path.join(out_dir, "gridness_data.npz")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Missing gridness_data.npz beside checkpoint: {path}. Run multi_seed_predictive_analysis.py first.")
@@ -423,6 +723,7 @@ def parse_args():
     parser.add_argument("--traj_border_region", default=0.03, type=float, help="Wall avoidance distance (m).")
     parser.add_argument("--traj_wall_slowdown", default=0.25, type=float, help="Speed multiplier near walls.")
     parser.add_argument("--traj_wall_turn_scale", default=1.0, type=float, help="Multiplier on wall-turn correction.")
+    parser.add_argument("--toroid_embed", default="auto", choices=["auto", "umap", "pca"], help="Embedding method for toroidal-cell detection.")
     return parser.parse_args()
 
 
@@ -439,6 +740,8 @@ def main():
     options = build_options(args, (Ng, Np, velocity_dim), device, args.checkpoint_path)
     place_cells = PlaceCells(options)
     traj_gen = TrajectoryGenerator(options, place_cells)
+    out_dir = str(analysis_dir_for_checkpoint(Path(args.checkpoint_path)) / "torus")
+    os.makedirs(out_dir, exist_ok=True)
 
     grid_data = load_gridness_data(args.checkpoint_path)
     # Grid-like units for basis (best gridness >= threshold)
@@ -468,6 +771,9 @@ def main():
     # Replace local unit labels with the original indices so projections slice the right neurons
     basis.units = idxs
 
+    toroidal_detection = identify_toroidal_cells(rate_maps, idxs, options.box_width, out_dir, embed_mode=args.toroid_embed)
+    toroidal_units = toroidal_detection.units.tolist()
+
     # Cache trajectories for fair comparisons
     cached_batches = collect_eval_batches(traj_gen, args.n_batches)
     if not cached_batches:
@@ -482,6 +788,9 @@ def main():
     projections["Baseline"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "baseline", [], torus_radii
     )
+    projections["Toroidal ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "toroidal", toroidal_units, torus_radii
+    )
     projections["Predictive ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "predictive", predictive_units, torus_radii
     )
@@ -493,8 +802,6 @@ def main():
     )
 
     # Plot
-    out_dir = os.path.join(os.path.dirname(args.checkpoint_path), "analysis_outputs", "torus")
-    os.makedirs(out_dir, exist_ok=True)
     positions_baseline = np.concatenate([p for _, p in cached_batches], axis=1)
     plot_torus_comparison(
         projections,
@@ -513,6 +820,18 @@ def main():
     plot_ring_diagnostics(ring_samples, os.path.join(out_dir, "torus_ring_metrics.png"))
 
     # Metrics
+    toroidal_clusters_json: Dict[str, Dict[str, float | int | List[int]]] = {}
+    for k, v in toroidal_detection.clusters.items():
+        toroidal_clusters_json[str(int(k))] = {
+            "size": int(v.get("size", 0)),
+            "band_score_mean": float(v.get("band_score_mean", float("nan"))),
+            "grid_like_mean": float(v.get("grid_like_mean", float("nan"))),
+            "anisotropy_mean": float(v.get("anisotropy_mean", float("nan"))),
+            "angle_mean_rad": float(v.get("angle_mean_rad", float("nan"))),
+            "indices_local": [int(x) for x in v.get("indices_local", [])],
+            "indices_global": [int(x) for x in v.get("indices_global", [])],
+        }
+
     metrics = {
         "k1_cycles_per_m": basis.k1.tolist(),
         "k2_cycles_per_m": basis.k2.tolist(),
@@ -522,6 +841,16 @@ def main():
         "predictive_units": len(predictive_units),
         "retrospective_units": len(retrospective_units),
         "normal_units": len(normal_units),
+        "toroidal_units": int(len(toroidal_units)),
+        "toroidal_detection": {
+            "embedding_method": toroidal_detection.embedding_method,
+            "eps": toroidal_detection.eps,
+            "min_samples": toroidal_detection.min_samples,
+            "angles_deg": toroidal_detection.angles_deg,
+            "ring_bounds": list(toroidal_detection.ring_bounds),
+            "selected_clusters": [int(c) for c in toroidal_detection.selected_clusters],
+            "clusters": toroidal_clusters_json,
+        },
     }
     for name, proj in projections.items():
         metrics[name] = {

@@ -15,6 +15,7 @@ import glob
 import json
 import math
 import os
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple, Optional
 
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ from model import RNN
 from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
 from visualize import predictive_gridness_analysis
+from path_utils import analysis_dir_for_checkpoint
 from replicate_predictive_grid_figure import (
     classify_units,
     cm_per_step_from_positions,
@@ -99,6 +101,9 @@ def build_options(args, dims: Tuple[int, int, int], device: str, ckpt_path: str)
     options.trajectory_border_region = args.traj_border_region
     options.trajectory_wall_slowdown = args.traj_wall_slowdown
     options.trajectory_wall_turn_scale = args.traj_wall_turn_scale
+    options.trajectory_style = args.trajectory_style
+    options.trajectory_fixed_speed = args.trajectory_fixed_speed
+    options.trajectory_dt = args.trajectory_dt
     return options
 
 
@@ -524,7 +529,7 @@ def analyse_checkpoint(ckpt_path: str,
     valid_best = best_idx >= 0
     best_cm[valid_best] = lag_cm[best_idx[valid_best]]
 
-    out_dir = os.path.join(os.path.dirname(ckpt_path), 'analysis_outputs')
+    out_dir = str(analysis_dir_for_checkpoint(Path(ckpt_path)))
     os.makedirs(out_dir, exist_ok=True)
 
     scatter_zero_vs_shift(

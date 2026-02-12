@@ -56,7 +56,7 @@ def convert_to_colormap(im, cmap):
 def rgb(im, cmap='jet', smooth=True):
     cmap = plt.cm.get_cmap(cmap)
     np.seterr(invalid='ignore')  # ignore divide by zero err
-    im = (im - np.min(im)) / (np.max(im) - np.min(im))
+    im = (im - np.nanmin(im)) / (np.nanmax(im) - np.nanmin(im))
     if smooth:
         im = cv2.GaussianBlur(im, (3,3), sigmaX=1, sigmaY=0)
     im = cmap(im)
@@ -217,8 +217,8 @@ def predictive_gridness_analysis(model, trajectory_generator, options,
     masks_parameters = zip(starts, ends.tolist())
     scorer = GridScorer(res, coord_range, masks_parameters)
 
-    s60, s90 = scorer.predictive_grid_scores(xs, ys, activations, lags)
-    return s60, s90, xs, ys, activations, scorer
+    s60, s90, ratemaps_shifted, sac_shifted = scorer.predictive_grid_scores(xs, ys, activations, lags)
+    return s60, s90, ratemaps_shifted, sac_shifted, xs, ys, activations, scorer
 
 
 def plot_predictive_gridness_per_cell(scores_60: np.ndarray,

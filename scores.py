@@ -244,6 +244,8 @@ class GridScorer(object):
     T = activations.shape[0]
     scores_60 = []
     scores_90 = []
+    ratemap_shifted = []
+    sac_shifted = []
     for lag in lags:
       if lag >= 0:
         # Align activations[t] with position[t+lag]
@@ -266,11 +268,14 @@ class GridScorer(object):
 
       # Flatten and bin into ratemap with future (or past) positions
       rm = self.calculate_ratemap(xs_l.reshape(-1), ys_l.reshape(-1), a_l.reshape(-1), statistic=statistic)
-      s60, s90, _, _, _, _ = self.get_scores(rm)
+      s60, s90, _, _, sac, _ = self.get_scores(rm)
       scores_60.append(s60)
       scores_90.append(s90)
+      
+      ratemap_shifted.append(rm)
+      sac_shifted.append(sac)
 
-    return np.asarray(scores_60), np.asarray(scores_90)
+    return np.asarray(scores_60), np.asarray(scores_90), ratemap_shifted, sac_shifted
 
   def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean'):
     """Predictive gridness across time lags.
@@ -308,10 +313,19 @@ class GridScorer(object):
       scores_60 = np.zeros((len(lags), Ng))
       scores_90 = np.zeros((len(lags), Ng))
       for u in range(Ng):
-        s60, s90 = self._predictive_scores_single(xs, ys, activations[:, :, u], lags, statistic)
+        s60, s90, rm, sac = self._predictive_scores_single(xs, ys, activations[:, :, u], lags, statistic)
         scores_60[:, u] = s60
         scores_90[:, u] = s90
-      return scores_60, scores_90
+        
+        if u == 0:
+            ratemap_shifted = np.zeros((np.shape(rm)[0], np.shape(rm)[1], np.shape(rm)[2], Ng))
+            sac_shifted = np.zeros((np.shape(sac)[0], np.shape(sac)[1], np.shape(sac)[2], Ng))
+        
+        ratemap_shifted[:, :, :, u] = rm
+        sac_shifted[:, :, :, u] = sac
+
+        
+      return scores_60, scores_90, ratemap_shifted, sac_shifted
     else:
       raise ValueError('activations must have shape [T,B] or [T,B,Ng]')
 
@@ -328,7 +342,7 @@ class GridScorer(object):
       If single unit: (best_lag, best_score)
       If Ng units: (best_lags, best_scores) with shape [Ng]
     """
-    s60, s90 = self.predictive_grid_scores(xs, ys, activations, lags, unit_idx=unit_idx, statistic=statistic)
+    s60, s90, _, _ = self.predictive_grid_scores(xs, ys, activations, lags, unit_idx=unit_idx, statistic=statistic)
     if activations.ndim == 2 or unit_idx is not None:
       scores = s60 if metric == '60' else s90
       idx = int(np.nanargmax(scores))

@@ -103,8 +103,12 @@ def _parse_from_dirname(dirname: str) -> Dict[str, float | int | str | bool]:
             pass
     m = re.search(r"weight_decay_([0-9eE\\.\\-]+)", dirname)
     if m:
+        raw = m.group(1)
         try:
-            out["weight_decay"] = float(m.group(1))
+            if raw.isdigit() and raw.startswith("0") and len(raw) > 1:
+                out["weight_decay"] = float(f"0.{raw}")
+            else:
+                out["weight_decay"] = float(raw)
         except ValueError:
             pass
     m = re.search(r"lr_0*([0-9]+)", dirname)
@@ -122,6 +126,9 @@ def _parse_from_dirname(dirname: str) -> Dict[str, float | int | str | bool]:
         out["periodic"] = m.group(1) == "True"
     if "relu" in dirname:
         out["activation"] = "relu"
+    m = re.search(r"trajectory_style_([A-Za-z_]+)", dirname)
+    if m:
+        out["trajectory_style"] = m.group(1)
     return out
 
 
@@ -141,6 +148,8 @@ def build_options(ckpt_path: Path, device: str = "cpu") -> Options:
         periodic=False,
         box_width=2.2,
         box_height=2.2,
+        trajectory_style="random_walk",
+        trajectory_fixed_speed=None,
     )
     parsed = _parse_from_dirname(ckpt_path.parent.name)
     defaults.update(parsed)
@@ -163,6 +172,8 @@ def build_options(ckpt_path: Path, device: str = "cpu") -> Options:
         velocity_dim=int(velocity_dim),
         run_ID=ckpt_path.parent.name,
         save_dir=str(ckpt_path.parent),
+        trajectory_style=str(defaults.get("trajectory_style", "random_walk")),
+        trajectory_fixed_speed=defaults.get("trajectory_fixed_speed", None),
     )
 
 

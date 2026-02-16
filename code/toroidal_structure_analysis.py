@@ -42,7 +42,7 @@ from place_cells import PlaceCells
 from predictive_retrospective_ablation import classify_from_scores
 from trajectory_generator import TrajectoryGenerator
 from visualize import compute_ratemaps
-from scores import GridScorer
+from scores import GridScorer, band_scores
 from multi_seed_predictive_analysis import (
     build_options,
     collect_eval_batches,
@@ -92,6 +92,19 @@ class ToroidalDetection:
     eps: float
     min_samples: int
     embedding_method: str
+
+
+def select_band_units(band_vals: np.ndarray, idxs: np.ndarray, percentile: float, threshold: Optional[float]) -> Tuple[np.ndarray, float]:
+    """Select band-like units using percentile or absolute cutoff."""
+    finite = band_vals[np.isfinite(band_vals)]
+    if finite.size == 0:
+        return np.array([], dtype=int), float("nan")
+    if threshold is not None:
+        cutoff = float(threshold)
+    else:
+        cutoff = float(np.nanpercentile(finite, percentile))
+    sel = np.where(band_vals >= cutoff)[0]
+    return idxs[sel].astype(int), cutoff
 
 
 # --------------------------------------------------------------------------------------
@@ -338,8 +351,14 @@ def compute_rotational_features(
         prof = _rotation_profile_from_sac(sac, angles_deg, mask)
         profiles.append(prof)
         prof_norm = (prof - np.mean(prof)) / (np.std(prof) + 1e-8)
+        if not np.isfinite(prof_norm).all():
+            prof_norm = np.nan_to_num(prof_norm)
         band_corr = float(np.corrcoef(prof_norm, band_template)[0, 1])
         tri_corr = float(np.corrcoef(prof_norm, tri_template)[0, 1])
+        if not np.isfinite(band_corr):
+            band_corr = 0.0
+        if not np.isfinite(tri_corr):
+            tri_corr = 0.0
         band_scores.append(band_corr)
         tri_scores.append(tri_corr)
 
@@ -377,7 +396,7 @@ def compute_rotational_features(
 
 def embed_rotations(features: np.ndarray, mode: str = "auto", random_state: int = 0) -> Tuple[np.ndarray, str]:
     """Embed rotational features via UMAP (preferred) or PCA."""
-    feats_std = StandardScaler().fit_transform(features)
+    feats_std = StandardScaler().fit_transform(np.nan_to_num(features))
     mode = (mode or "auto").lower()
     if mode == "pca":
         return PCA(n_components=2, random_state=random_state).fit_transform(feats_std), "pca"
@@ -715,6 +734,10 @@ def parse_args():
     parser.add_argument("--gridness_threshold", type=float, default=0.5, help="Minimum peak gridness to treat as a grid cell.")
     parser.add_argument("--min_shift_cm", type=float, default=5.0, help="Minimum shift for predictive/retrospective classification.")
     parser.add_argument("--res", type=int, default=40, help="Ratemap resolution for phase estimation.")
+    parser.add_argument("--band_percentile", type=float, default=90.0, help="Percentile cutoff for band-cell selection.")
+    parser.add_argument("--band_threshold", type=float, default=None, help="Absolute band score cutoff (overrides percentile).")
+    parser.add_argument("--band_k_max", type=float, default=2.0, help="Max k for band score grid.")
+    parser.add_argument("--band_k_step", type=float, default=0.1, help="Step for band score k grid.")
     parser.add_argument("--device", default=None, help="cpu or cuda. Defaults to best available.")
     parser.add_argument("--traj_speed_scale", default=1.0, type=float, help="Multiplier on the Rayleigh speed scale.")
     parser.add_argument("--traj_speed_max", default=None, type=float, help="Optional cap on forward speed (m/s).")
@@ -767,6 +790,14 @@ def main():
     rate_maps, _, _, _ = compute_ratemaps(model, traj_gen, options, res=args.res, n_avg=max(8, args.n_batches), Ng=Ng_subset, idxs=idxs)
     rate_maps = rate_maps.astype(float)
 
+    band_vals, band_kx, band_ky = band_scores(
+        rate_maps,
+        args.res,
+        options.box_width,
+        k_values=np.arange(0.0, args.band_k_max + 1e-6, args.band_k_step),
+    )
+    band_units, band_cutoff = select_band_units(band_vals, idxs, args.band_percentile, args.band_threshold)
+
     basis = build_torus_basis(rate_maps, np.arange(Ng_subset), options.box_width)
     # Replace local unit labels with the original indices so projections slice the right neurons
     basis.units = idxs
@@ -799,6 +830,9 @@ def main():
     )
     projections["Normal grid ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "normal", normal_units, torus_radii
+    )
+    projections["Band ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "band", band_units.tolist(), torus_radii
     )
 
     # Plot
@@ -842,6 +876,16 @@ def main():
         "retrospective_units": len(retrospective_units),
         "normal_units": len(normal_units),
         "toroidal_units": int(len(toroidal_units)),
+        "band_units": int(len(band_units)),
+        "band_cutoff": float(band_cutoff) if band_cutoff == band_cutoff else float("nan"),
+        "band_percentile": float(args.band_percentile),
+        "band_threshold": None if args.band_threshold is None else float(args.band_threshold),
+        "band_overlap": {
+            "toroidal": int(len(set(band_units.tolist()).intersection(toroidal_units))),
+            "predictive": int(len(set(band_units.tolist()).intersection(predictive_units))),
+            "retrospective": int(len(set(band_units.tolist()).intersection(retrospective_units))),
+            "normal": int(len(set(band_units.tolist()).intersection(normal_units))),
+        },
         "toroidal_detection": {
             "embedding_method": toroidal_detection.embedding_method,
             "eps": toroidal_detection.eps,

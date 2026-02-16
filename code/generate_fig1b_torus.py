@@ -14,6 +14,7 @@ Outputs are written under analysis_outputs/<model>/<seed>/<run>/torus/:
 
 from __future__ import annotations
 
+import argparse
 import math
 import os
 import re
@@ -46,10 +47,12 @@ from model import RNN
 from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
 from predictive_retrospective_ablation import classify_from_scores
-from multi_seed_predictive_analysis import zero_unit_weights_in_place
+from multi_seed_predictive_analysis import expand_checkpoints, zero_unit_weights_in_place
 from single_seed_torus_distance import build_options
 from path_utils import analysis_dir_for_checkpoint
 from visualize import compute_ratemaps
+from scores import band_scores
+from toroidal_structure_analysis import identify_toroidal_cells
 
 
 # --------------------------------------------------------------------------------------
@@ -143,6 +146,69 @@ def load_grid_units(
         "normal": np.asarray(classes.get("normal", []), dtype=int),
     }
     return grid_units, class_indices
+
+
+def load_band_units(
+    model: RNN,
+    traj_gen: TrajectoryGenerator,
+    options,
+    Ng_use: int,
+    res: int,
+    n_avg: int,
+    band_percentile: float,
+    band_threshold: float | None,
+    band_k_max: float,
+    band_k_step: float,
+) -> Tuple[np.ndarray, float]:
+    """Compute band scores over the first Ng_use units and return band-unit indices + cutoff."""
+    Ng_use = int(min(Ng_use, options.Ng))
+    idxs = np.arange(Ng_use, dtype=int)
+    activations, _, _, _ = compute_ratemaps(
+        model,
+        traj_gen,
+        options,
+        res=res,
+        n_avg=n_avg,
+        Ng=Ng_use,
+        idxs=idxs,
+    )
+    k_values = np.arange(0.0, band_k_max + 1e-6, band_k_step)
+    band_vals, _, _ = band_scores(activations, res, options.box_width, k_values=k_values)
+    finite = band_vals[np.isfinite(band_vals)]
+    if finite.size == 0:
+        return np.array([], dtype=int), float("nan")
+    if band_threshold is not None:
+        cutoff = float(band_threshold)
+    else:
+        cutoff = float(np.nanpercentile(finite, band_percentile))
+    band_units = idxs[np.where(band_vals >= cutoff)[0]]
+    return band_units.astype(int), cutoff
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkpoint_paths", nargs="*", default=None,
+                        help="Explicit checkpoint paths, directories, or globs.")
+    parser.add_argument("--gridness_threshold", type=float, default=0.5)
+    parser.add_argument("--min_shift_cm", type=float, default=5.0)
+    parser.add_argument("--Ng_use", type=int, default=512)
+    parser.add_argument("--band_percentile", type=float, default=90.0)
+    parser.add_argument("--band_threshold", type=float, default=None)
+    parser.add_argument("--band_k_max", type=float, default=2.0)
+    parser.add_argument("--band_k_step", type=float, default=0.1)
+    parser.add_argument("--toroid_embed", default="auto", choices=["auto", "umap", "pca"])
+    parser.add_argument("--trajectory_mode", default="compare_full_straight",
+                        choices=["compare", "compare_full", "compare_full_straight", "random"])
+    parser.add_argument("--overlay_seconds", type=float, default=5.0)
+    parser.add_argument("--sample_size", type=int, default=20000)
+    parser.add_argument("--traj_batches", type=int, default=4)
+    parser.add_argument("--eval_batch_size", type=int, default=64)
+    parser.add_argument("--cloud_trajectories", type=int, default=1000)
+    parser.add_argument("--eval_trajectories", type=int, default=100)
+    parser.add_argument("--res", type=int, default=40)
+    parser.add_argument("--n_avg", type=int, default=12)
+    parser.add_argument("--device", default="cpu")
+    return parser.parse_args()
 
 
 def estimate_lattice_vectors(rate_maps: np.ndarray, grid_units: np.ndarray, box_width: float) -> Tuple[np.ndarray, np.ndarray, float, float]:
@@ -804,35 +870,58 @@ def plot_distance_over_time(
 # --------------------------------------------------------------------------------------
 
 def main():
-    base = Path("Models/Single agent path integration")
-    checkpoints = find_checkpoints(base)
-    if not checkpoints:
-        raise SystemExit("No checkpoints found under Models/Single agent path integration/")
-
-    overlay_seconds = 5.0
-    sample_size = 20000
-    gridness_threshold = 0.5
-    min_shift_cm = 5.0
-    max_units = 512
-    traj_batches = 4
-    eval_batch_size = 64
+    args = parse_args()
     rng = np.random.default_rng(123)
-    trajectory_mode = "compare_full_straight"
-    cloud_trajectories = 1000
-    eval_trajectories = 100
+
+    if args.checkpoint_paths:
+        ckpts = expand_checkpoints(args.checkpoint_paths)
+        if not ckpts:
+            raise SystemExit("No checkpoints matched --checkpoint_paths.")
+        checkpoints = []
+        for ckpt in ckpts:
+            m = re.search(r"Seed\s+(\d+)", str(ckpt))
+            seed = int(m.group(1)) if m else -1
+            checkpoints.append((seed, Path(ckpt)))
+        checkpoints.sort(key=lambda x: (x[0] if x[0] >= 0 else 1_000_000, str(x[1])))
+    else:
+        base = Path("Models/Single agent path integration")
+        checkpoints = find_checkpoints(base)
+        if not checkpoints:
+            raise SystemExit("No checkpoints found under Models/Single agent path integration/")
+
+    overlay_seconds = args.overlay_seconds
+    sample_size = args.sample_size
+    gridness_threshold = args.gridness_threshold
+    min_shift_cm = args.min_shift_cm
+    max_units = args.Ng_use
+    traj_batches = args.traj_batches
+    eval_batch_size = args.eval_batch_size
+    trajectory_mode = args.trajectory_mode
+    cloud_trajectories = args.cloud_trajectories
+    eval_trajectories = args.eval_trajectories
     use_full_cloud = True
     cloud_time_stride = 1 if use_full_cloud else 4
     cloud_max_points = None if use_full_cloud else 40000
 
+    ablation_styles = {
+        "predictive": dict(label="Predictive ablation", color="#3fb9ff", shadow="#0b1b2b", glow="#e3f6ff"),
+        "retrospective": dict(label="Retrospective ablation", color="#2ca02c", shadow="#0f2b0f", glow="#d6f5d6"),
+        "normal": dict(label="Normal ablation", color="#7f7f7f", shadow="#2b2b2b", glow="#dddddd"),
+        "band": dict(label="Band ablation", color="#bcbd22", shadow="#3b3b0f", glow="#f3f3c8"),
+        "toroidal": dict(label="Toroidal ablation", color="#e377c2", shadow="#3b1e36", glow="#f5d6ec"),
+        "random": dict(label="Random ablation", color="#7a52ff", shadow="#2b1d55", glow="#e7dcff"),
+    }
+
     for seed, ckpt_path in checkpoints:
         print(f"[seed {seed}] Loading checkpoint {ckpt_path}")
-        device = torch.device("cpu")
-        raw = torch.load(ckpt_path, map_location="cpu")
+        device = torch.device(args.device)
+        raw = torch.load(ckpt_path, map_location=device)
         state = raw["state_dict"] if isinstance(raw, dict) and "state_dict" in raw else raw
 
         grid_units, class_indices = load_grid_units(ckpt_path, gridness_threshold, max_units, min_shift_cm)
         predictive_units = class_indices.get("predictive", np.array([], dtype=int))
         retrospective_units = class_indices.get("retrospective", np.array([], dtype=int))
+        normal_units = class_indices.get("normal", np.array([], dtype=int))
 
         options = build_options(Path(ckpt_path), device=str(device))
         options.sequence_length = max(int(math.ceil(overlay_seconds / getattr(options, "trajectory_dt", 0.02))) + 10, 260)
@@ -859,8 +948,44 @@ def main():
         rm_options.sequence_length = 20
         rm_options.batch_size = 200
         traj_gen_rm = TrajectoryGenerator(rm_options, place_cells)
-        torus_basis = compute_torus_basis(model, traj_gen_rm, rm_options, grid_units)
+        torus_basis = compute_torus_basis(model, traj_gen_rm, rm_options, grid_units, res=args.res, n_avg=args.n_avg)
         torus_radii = (1.0, 0.35)
+
+        out_dir = analysis_dir_for_checkpoint(ckpt_path) / "torus"
+        os.makedirs(out_dir, exist_ok=True)
+
+        # Band units
+        band_units, band_cutoff = load_band_units(
+            model,
+            traj_gen_rm,
+            rm_options,
+            max_units,
+            args.res,
+            args.n_avg,
+            args.band_percentile,
+            args.band_threshold,
+            args.band_k_max,
+            args.band_k_step,
+        )
+
+        # Toroidal units (subset of grid units)
+        rate_maps, _, _, _ = compute_ratemaps(
+            model,
+            traj_gen_rm,
+            rm_options,
+            res=args.res,
+            n_avg=args.n_avg,
+            Ng=grid_units.size,
+            idxs=grid_units,
+        )
+        toroidal_detection = identify_toroidal_cells(
+            rate_maps.astype(float),
+            grid_units,
+            rm_options.box_width,
+            str(out_dir),
+            embed_mode=args.toroid_embed,
+        )
+        toroidal_units = toroidal_detection.units
 
         baseline_inputs, baseline_batches, pos_batches = run_condition(
             state,
@@ -871,28 +996,45 @@ def main():
             [],
             grid_units,
         )
-        if predictive_units.size:
-            ablated_inputs, ablated_batches, _ = run_condition(
-                state,
-                options,
-                place_cells,
-                eval_batches,
-                device,
-                predictive_units,
-                grid_units,
-            )
-        else:
-            ablated_inputs, ablated_batches, _ = run_condition(
-                state,
-                options,
-                place_cells,
-                eval_batches,
-                device,
-                [],
-                grid_units,
-            )
 
-        out_dir = analysis_dir_for_checkpoint(ckpt_path) / "torus"
+        ablation_units = {
+            "predictive": predictive_units,
+            "retrospective": retrospective_units,
+            "normal": normal_units,
+            "band": band_units,
+            "toroidal": toroidal_units,
+        }
+
+        ablated_inputs_map: Dict[str, EmbeddingInputs] = {}
+        for name, units in ablation_units.items():
+            if units is None or len(units) == 0:
+                continue
+            ablated_inputs, _, _ = run_condition(
+                state,
+                options,
+                place_cells,
+                eval_batches,
+                device,
+                units,
+                grid_units,
+            )
+            ablated_inputs_map[name] = ablated_inputs
+
+        # Random ablation matched to predictive (if any).
+        if predictive_units.size:
+            random_units = sample_random_units(rng, grid_units, predictive_units.size)
+            if random_units.size:
+                random_inputs, _, _ = run_condition(
+                    state,
+                    options,
+                    place_cells,
+                    eval_batches,
+                    device,
+                    random_units,
+                    grid_units,
+                )
+                ablated_inputs_map["random"] = random_inputs
+
         if trajectory_mode in {"compare", "compare_full", "compare_full_straight"}:
             cloud_batches = int(math.ceil(cloud_trajectories / eval_batch_size))
             cloud_g_list, cloud_pos_list = collect_activity_batches(
@@ -933,73 +1075,25 @@ def main():
                 baseline_inputs.states.shape[0],
             )
             base_eval = baseline_inputs.states[:overlay_steps]
-            ab_eval = ablated_inputs.states[:overlay_steps]
             pos_eval = baseline_inputs.positions[:overlay_steps]
             total_traj = base_eval.shape[1]
             n_eval = min(eval_trajectories, total_traj)
             traj_idx = rng.choice(total_traj, n_eval, replace=False)
             base_eval = base_eval[:, traj_idx]
-            ab_eval = ab_eval[:, traj_idx]
             pos_eval = pos_eval[:, traj_idx]
 
             base_flat = base_eval.reshape(-1, base_eval.shape[2]).astype(np.float32)
-            ab_flat = ab_eval.reshape(-1, ab_eval.shape[2]).astype(np.float32)
             base_z = (base_flat - mean) / std
-            ab_z = (ab_flat - mean) / std
             base_dist = compute_knn_distances(cloud_z, base_z, k=5).reshape(overlay_steps, n_eval)
-            ab_dist = compute_knn_distances(cloud_z, ab_z, k=5).reshape(overlay_steps, n_eval)
 
             times = np.arange(overlay_steps) * baseline_inputs.dt
             base_mean = base_dist.mean(axis=1)
-            ab_mean = ab_dist.mean(axis=1)
             base_sem = base_dist.std(axis=1, ddof=1) / np.sqrt(n_eval)
-            ab_sem = ab_dist.std(axis=1, ddof=1) / np.sqrt(n_eval)
 
             traj_choice = int(rng.integers(0, n_eval))
             base_traj = base_eval[:, traj_choice]
             overlay_xy = pos_eval[:, traj_choice, :2]
             overlay_emb = project_states_to_torus(base_traj[:, None, :], torus_basis, torus_radii).reshape(-1, 3)
-            overlay_emb_ab = project_states_to_torus(ab_eval[:, traj_choice][:, None, :], torus_basis, torus_radii).reshape(-1, 3)
-
-            overlay_specs = [
-                OverlaySpec(
-                    coords=overlay_emb_ab,
-                    times=times,
-                    label="Predictive ablation",
-                    color="#3fb9ff",
-                    shadow_color="#0b1b2b",
-                    glow_color="#e3f6ff",
-                    shadow_width=3.2,
-                    glow_width=2.2,
-                    line_width=1.4,
-                    point_size=14.0,
-                    start_marker="^",
-                    start_color="#3fb9ff",
-                    start_size=40.0,
-                    end_marker="D",
-                    end_color="#3fb9ff",
-                    end_size=40.0,
-                    legend_color="#3fb9ff",
-                    alpha=0.75,
-                ),
-                OverlaySpec(
-                    coords=overlay_emb,
-                    times=times,
-                    label="Baseline trajectory",
-                    color="#ff7f0e",
-                    shadow_width=6.5,
-                    glow_width=4.8,
-                    line_width=3.4,
-                    point_size=26.0,
-                    point_edge_width=0.5,
-                    start_color="#ff7f0e",
-                    start_size=70.0,
-                    end_color="#ff7f0e",
-                    end_size=70.0,
-                    alpha=1.0,
-                    legend_color="#ff7f0e",
-                ),
-            ]
 
             suffix_parts = []
             if "full" in trajectory_mode:
@@ -1007,157 +1101,90 @@ def main():
             if "straight" in trajectory_mode:
                 suffix_parts.append("straight")
             suffix = "_".join(suffix_parts) if suffix_parts else "compare"
-            plot_fig1b(
-                emb,
-                pc1,
-                overlay_specs,
-                overlay_xy,
-                times,
-                pos_bg,
-                box_limits=(options.box_width / 2, options.box_height / 2),
-                out_path=out_dir / f"fig1b_baseline_cloud_dualtraj_{suffix}.png",
-                title=f"Seed {seed} baseline cloud",
-            )
-            plot_distance_over_time(
-                times,
-                base_mean,
-                base_sem,
-                ab_mean,
-                ab_sem,
-                out_path=out_dir / f"fig1b_offmanifold_distance_{suffix}.png",
-                title=f"Seed {seed} k-NN distance to baseline cloud",
+
+            baseline_spec = OverlaySpec(
+                coords=overlay_emb,
+                times=times,
+                label="Baseline trajectory",
+                color="#ff7f0e",
+                shadow_width=6.5,
+                glow_width=4.8,
+                line_width=3.4,
+                point_size=26.0,
+                point_edge_width=0.5,
+                start_color="#ff7f0e",
+                start_size=70.0,
+                end_color="#ff7f0e",
+                end_size=70.0,
+                alpha=1.0,
+                legend_color="#ff7f0e",
             )
 
-            random_units = sample_random_units(rng, grid_units, predictive_units.size)
-            random_inputs, random_batches, _ = run_condition(
-                state,
-                options,
-                place_cells,
-                eval_batches,
-                device,
-                random_units,
-                grid_units,
-            )
-            if retrospective_units.size:
-                retrospective_inputs, retrospective_batches, _ = run_condition(
-                    state,
-                    options,
-                    place_cells,
-                    eval_batches,
-                    device,
-                    retrospective_units,
-                    grid_units,
-                )
-            else:
-                retrospective_inputs, retrospective_batches = None, None
-
-            random_traj = random_inputs.states[:overlay_steps, traj_idx][:, traj_choice]
-            random_emb = project_states_to_torus(random_traj[:, None, :], torus_basis, torus_radii).reshape(-1, 3)
-            random_specs = [
-                OverlaySpec(
-                    coords=overlay_emb,
+            # Baseline cloud with overlays for each ablation.
+            for name, ab_inputs in ablated_inputs_map.items():
+                ab_eval = ab_inputs.states[:overlay_steps, traj_idx]
+                ab_traj = ab_eval[:, traj_choice]
+                ab_emb = project_states_to_torus(ab_traj[:, None, :], torus_basis, torus_radii).reshape(-1, 3)
+                style = ablation_styles.get(name, {})
+                ab_spec = OverlaySpec(
+                    coords=ab_emb,
                     times=times,
-                    label="Baseline trajectory",
-                    color="#ff7f0e",
-                    shadow_width=6.5,
-                    glow_width=4.8,
-                    line_width=3.4,
-                    point_size=26.0,
-                    point_edge_width=0.5,
-                    start_color="#ff7f0e",
-                    start_size=70.0,
-                    end_color="#ff7f0e",
-                    end_size=70.0,
-                    alpha=1.0,
-                    legend_color="#ff7f0e",
-                ),
-                OverlaySpec(
-                    coords=random_emb,
-                    times=times,
-                    label="Random ablation",
-                    color="#7a52ff",
-                    shadow_color="#2b1d55",
-                    glow_color="#e7dcff",
-                    shadow_width=3.0,
-                    glow_width=2.0,
-                    line_width=1.6,
-                    point_size=16.0,
+                    label=style.get("label", f"{name} ablation"),
+                    color=style.get("color", "#3fb9ff"),
+                    shadow_color=style.get("shadow", "#0b1b2b"),
+                    glow_color=style.get("glow", "#e3f6ff"),
+                    shadow_width=3.2,
+                    glow_width=2.2,
+                    line_width=1.4,
+                    point_size=14.0,
                     start_marker="^",
-                    start_color="#bfa5ff",
-                    start_size=45.0,
+                    start_color=style.get("color", "#3fb9ff"),
+                    start_size=40.0,
                     end_marker="D",
-                    end_color="#7a52ff",
-                    end_size=45.0,
-                    legend_color="#7a52ff",
+                    end_color=style.get("color", "#3fb9ff"),
+                    end_size=40.0,
+                    legend_color=style.get("color", "#3fb9ff"),
                     alpha=0.8,
-                ),
-            ]
-            plot_fig1b(
-                emb,
-                pc1,
-                random_specs,
-                overlay_xy,
-                times,
-                pos_bg,
-                box_limits=(options.box_width / 2, options.box_height / 2),
-                out_path=out_dir / f"fig1b_baseline_cloud_dualtraj_{suffix}_random.png",
-                title=f"Seed {seed} baseline cloud (random ablation)",
-            )
+                )
 
-            if retrospective_inputs is not None:
-                retro_traj = retrospective_inputs.states[:overlay_steps, traj_idx][:, traj_choice]
-                retro_emb = project_states_to_torus(retro_traj[:, None, :], torus_basis, torus_radii).reshape(-1, 3)
-                retro_specs = [
-                    OverlaySpec(
-                        coords=overlay_emb,
-                        times=times,
-                        label="Baseline trajectory",
-                        color="#ff7f0e",
-                        shadow_width=6.5,
-                        glow_width=4.8,
-                        line_width=3.4,
-                        point_size=26.0,
-                        point_edge_width=0.5,
-                        start_color="#ff7f0e",
-                        start_size=70.0,
-                        end_color="#ff7f0e",
-                        end_size=70.0,
-                        alpha=1.0,
-                        legend_color="#ff7f0e",
-                    ),
-                    OverlaySpec(
-                        coords=retro_emb,
-                        times=times,
-                        label="Retrospective ablation",
-                        color="#2ca02c",
-                        shadow_color="#0f2b0f",
-                        glow_color="#d6f5d6",
-                        shadow_width=3.0,
-                        glow_width=2.0,
-                        line_width=1.6,
-                        point_size=16.0,
-                        start_marker="^",
-                        start_color="#8fd98f",
-                        start_size=45.0,
-                        end_marker="D",
-                        end_color="#2ca02c",
-                        end_size=45.0,
-                        legend_color="#2ca02c",
-                        alpha=0.8,
-                    ),
-                ]
+                if name == "predictive":
+                    out_name = f"fig1b_baseline_cloud_dualtraj_{suffix}.png"
+                    title = f"Seed {seed} baseline cloud"
+                else:
+                    out_name = f"fig1b_baseline_cloud_dualtraj_{suffix}_{name}.png"
+                    title = f"Seed {seed} baseline cloud ({style.get('label', name)})"
+
                 plot_fig1b(
                     emb,
                     pc1,
-                    retro_specs,
+                    [ab_spec, baseline_spec],
                     overlay_xy,
                     times,
                     pos_bg,
                     box_limits=(options.box_width / 2, options.box_height / 2),
-                    out_path=out_dir / f"fig1b_baseline_cloud_dualtraj_{suffix}_retrospective.png",
-                    title=f"Seed {seed} baseline cloud (retrospective ablation)",
+                    out_path=out_dir / out_name,
+                    title=title,
+                )
+
+            # Off-manifold distance vs baseline (predictive ablation if present).
+            if "predictive" in ablated_inputs_map:
+                ab_eval = ablated_inputs_map["predictive"].states[:overlay_steps, traj_idx]
+                ab_flat = ab_eval.reshape(-1, ab_eval.shape[2]).astype(np.float32)
+                ab_z = (ab_flat - mean) / std
+                ab_dist = compute_knn_distances(cloud_z, ab_z, k=5).reshape(overlay_steps, n_eval)
+                ab_mean = ab_dist.mean(axis=1)
+                ab_sem = ab_dist.std(axis=1, ddof=1) / np.sqrt(n_eval)
+                plot_distance_over_time(
+                    times,
+                    base_mean,
+                    base_sem,
+                    ab_mean,
+                    ab_sem,
+                    out_path=out_dir / f"fig1b_offmanifold_distance_{suffix}.png",
+                    title=f"Seed {seed} k-NN distance to baseline cloud",
                 )
         else:
+            # Fallback: use baseline/predictive-only style (original behavior).
             emb, pc1, pos_bg = embed_states(
                 baseline_inputs,
                 sample_size,
@@ -1166,8 +1193,13 @@ def main():
                 torus_radii,
             )
 
+            if "predictive" in ablated_inputs_map:
+                ab_inputs = ablated_inputs_map["predictive"]
+            else:
+                ab_inputs = baseline_inputs
+
             ab_emb, ab_pc1, _ = embed_states(
-                ablated_inputs,
+                ab_inputs,
                 sample_size,
                 rng,
                 torus_basis,
@@ -1177,7 +1209,7 @@ def main():
             if trajectory_mode == "random":
                 base_traj, ablated_traj, overlay_pos = select_random_path(
                     baseline_batches,
-                    ablated_batches,
+                    baseline_batches,
                     pos_batches,
                     baseline_inputs.dt,
                     overlay_seconds,
@@ -1186,7 +1218,7 @@ def main():
             else:
                 base_traj, ablated_traj, overlay_pos = select_divergent_path(
                     baseline_batches,
-                    ablated_batches,
+                    baseline_batches,
                     pos_batches,
                     torus_basis,
                     torus_radii,
@@ -1208,7 +1240,7 @@ def main():
                     legend_color="#ff7f0e",
                 ),
             ]
-            if predictive_units.size:
+            if "predictive" in ablated_inputs_map:
                 overlay_specs.append(
                     OverlaySpec(
                         coords=overlay_emb_ab,
@@ -1240,7 +1272,7 @@ def main():
                 title=f"Seed {seed} baseline",
             )
 
-            if predictive_units.size:
+            if "predictive" in ablated_inputs_map:
                 ablated_name = (
                     "fig1b_random_predictive_ablated.png"
                     if trajectory_mode == "random"

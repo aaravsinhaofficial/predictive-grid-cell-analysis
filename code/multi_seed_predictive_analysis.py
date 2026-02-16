@@ -499,7 +499,10 @@ def analyse_checkpoint(ckpt_path: str,
     model.eval()
     traj_gen = TrajectoryGenerator(options, place_cells)
 
-    Ng_eval = min(args.Ng_use, Ng)
+    if args.Ng_use is None or args.Ng_use <= 0:
+        Ng_eval = Ng
+    else:
+        Ng_eval = min(args.Ng_use, Ng)
     scores_60, scores_90, xs, ys, activations, scorer = predictive_gridness_analysis(
         model,
         traj_gen,

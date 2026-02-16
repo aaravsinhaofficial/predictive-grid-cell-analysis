@@ -462,3 +462,89 @@ def border_score(rm, res, box_width):
     dm = np.nanmean(dms) / (box_width/2)
     border_score = (cm_max-dm)/(cm_max+dm)
     return border_score, cm_max, dm
+
+
+_BAND_CACHE = {}
+
+
+def _band_library(res, box_width, k_values):
+  """Precompute normalized sinusoids for band scoring."""
+  k_values = np.asarray(k_values, dtype=float)
+  key = (int(res), float(box_width), tuple(np.round(k_values, 6)))
+  if key in _BAND_CACHE:
+    return _BAND_CACHE[key]
+
+  xs = np.linspace(-box_width / 2, box_width / 2, res)
+  ys = np.linspace(-box_width / 2, box_width / 2, res)
+  X, Y = np.meshgrid(xs, ys, indexing='ij')
+
+  combos = []
+  sinusoids = []
+  for kx in k_values:
+    for ky in k_values:
+      if kx == 0 and ky == 0:
+        continue
+      combos.append((float(kx), float(ky)))
+      sinusoids.append(np.cos(2 * np.pi * (kx * X + ky * Y)).reshape(-1))
+
+  if not sinusoids:
+    sinusoids = [np.zeros((res * res,), dtype=float)]
+    combos = [(0.0, 0.0)]
+
+  S = np.stack(sinusoids, axis=0).astype(np.float32)
+  S = S - np.mean(S, axis=1, keepdims=True)
+  S_std = np.std(S, axis=1, ddof=1, keepdims=True)
+  S = S / (S_std + 1e-8)
+
+  kxky = np.asarray(combos, dtype=np.float32)
+  _BAND_CACHE[key] = (S, kxky)
+  return S, kxky
+
+
+def band_scores(rate_maps, res, box_width, k_values=None):
+  """Compute band scores for many rate maps using the NeurIPS 2024 definition.
+
+  For each rate map Xi, the band score is:
+    max_{kx,ky in K} corrcoef[Xi, X(kx,ky)]
+  where X(kx,ky) is a 2D sinusoid with frequencies kx, ky.
+  """
+  if k_values is None:
+    k_values = np.arange(0.0, 2.0 + 1e-6, 0.1)
+  maps = np.asarray(rate_maps)
+  if maps.ndim != 3:
+    raise ValueError('rate_maps must have shape [N, res, res]')
+  n_units = maps.shape[0]
+  flat = maps.reshape(n_units, -1).astype(np.float32)
+  flat = np.nan_to_num(flat)
+  flat = flat - np.mean(flat, axis=1, keepdims=True)
+  flat_std = np.std(flat, axis=1, ddof=1, keepdims=True)
+  valid = flat_std.squeeze() > 1e-8
+  flat = flat / (flat_std + 1e-8)
+
+  S, kxky = _band_library(res, box_width, k_values)
+  n = flat.shape[1]
+  corr = (flat @ S.T) / max(n - 1, 1)
+
+  best_idx = np.full((n_units,), -1, dtype=int)
+  best_scores = np.full((n_units,), np.nan, dtype=np.float32)
+  if n_units > 0 and corr.size > 0:
+    best_idx = np.nanargmax(corr, axis=1)
+    best_scores = corr[np.arange(n_units), best_idx]
+
+  # Mark invalid (flat variance ~ 0) as NaN
+  if np.any(~valid):
+    best_scores = best_scores.astype(np.float32)
+    best_scores[~valid] = np.nan
+
+  best_kx = np.full((n_units,), np.nan, dtype=np.float32)
+  best_ky = np.full((n_units,), np.nan, dtype=np.float32)
+  if kxky.size > 0 and best_idx.size > 0:
+    best_kx[best_idx >= 0] = kxky[best_idx[best_idx >= 0], 0]
+    best_ky[best_idx >= 0] = kxky[best_idx[best_idx >= 0], 1]
+  return best_scores, best_kx, best_ky
+
+
+def band_score(rate_map, res, box_width, k_values=None):
+  """Band score for a single rate map."""
+  scores, best_kx, best_ky = band_scores(rate_map[np.newaxis, :, :], res, box_width, k_values=k_values)
+  return float(scores[0]), float(best_kx[0]), float(best_ky[0])

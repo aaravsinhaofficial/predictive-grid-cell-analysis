@@ -160,8 +160,13 @@ def plot_heatmaps_and_curves(
     axes_top = axes[0]
     axes_bot = axes[1]
 
-    vmax = max(np.nanmax(mat) for mat in group_matrices.values() if mat.size)
-    vmin = min(np.nanmin(mat) for mat in group_matrices.values() if mat.size)
+    non_empty = [mat for mat in group_matrices.values() if mat.size]
+    if non_empty:
+        vmax = max(np.nanmax(mat) for mat in non_empty)
+        vmin = min(np.nanmin(mat) for mat in non_empty)
+    else:
+        vmax = 0.3
+        vmin = -0.1
     vmax = 0.3 if not np.isfinite(vmax) else max(0.3, float(vmax))
     vmin = -0.1 if not np.isfinite(vmin) else min(-0.1, float(vmin))
     im_ref = None

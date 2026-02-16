@@ -4,7 +4,7 @@
 This script:
   1) extracts a torus parameterization from grid-cell rate maps,
   2) projects hidden activity onto toroidal coordinates,
-  3) compares baseline vs predictive-cell vs retrospective-cell ablations.
+  3) compares baseline vs predictive-cell vs retrospective-cell vs normal-cell ablations.
 
 Outputs are written beside the checkpoint under analysis_outputs/torus/:
   - torus_comparison.png : 3D point clouds for each condition (baseline / PGC ablated / RGC ablated)
@@ -24,14 +24,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import torch
 
 from model import RNN
 from place_cells import PlaceCells
-from predictive_retrospective_ablation import classify_from_scores
 from trajectory_generator import TrajectoryGenerator
 from visualize import compute_ratemaps
+from predictive_retrospective_ablation import classify_from_scores
+import seaborn as sns
 from multi_seed_predictive_analysis import (
     build_options,
     collect_eval_batches,
@@ -281,7 +281,7 @@ def plot_torus_comparison(
 ) -> None:
     """Plot 3D torus embeddings for each condition (single view + multiview grid)."""
     titles = list(projections.keys())
-    cmap = plt.cm.get_cmap("viridis")
+    cmap = matplotlib.colormaps.get_cmap("viridis")
     flat_pos = positions.reshape(-1, 2)
     x_norm = (flat_pos[:, 0] - flat_pos[:, 0].min()) / (flat_pos[:, 0].ptp() + 1e-8)
 
@@ -449,10 +449,11 @@ def main():
         raise RuntimeError("No units pass the gridness threshold; lower --gridness_threshold.")
     basis_units_global = grid_units_global[: args.Ng_use]
 
-    # Predictive / retrospective unit lists for ablation
+    # Predictive / retrospective / normal unit lists for ablation (original definition)
     classes = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
-    predictive_units = classes["predictive"].tolist()
-    retrospective_units = classes["retrospective"].tolist()
+    predictive_units = classes.get("predictive", np.array([], dtype=int)).tolist()
+    retrospective_units = classes.get("retrospective", np.array([], dtype=int)).tolist()
+    normal_units = classes.get("normal", np.array([], dtype=int)).tolist()
 
     # Rate maps (baseline) for the basis units
     model = RNN(options, place_cells).to(device)
@@ -487,6 +488,9 @@ def main():
     projections["Retrospective ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "retrospective", retrospective_units, torus_radii
     )
+    projections["Normal ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "normal", normal_units, torus_radii
+    )
 
     # Plot
     out_dir = os.path.join(os.path.dirname(args.checkpoint_path), "analysis_outputs", "torus")
@@ -517,6 +521,7 @@ def main():
         "grid_units_used": int(len(basis_units_global)),
         "predictive_units": len(predictive_units),
         "retrospective_units": len(retrospective_units),
+        "normal_units": len(normal_units),
     }
     for name, proj in projections.items():
         metrics[name] = {

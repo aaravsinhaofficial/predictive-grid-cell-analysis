@@ -336,6 +336,7 @@ class GridScorer(object):
 
     # handle missing data
     for b in range(B):
+      # ensure every timestep will have a heading
       valid_b = np.isfinite(ux[:, b]) & np.isfinite(uy[:, b])
       if not np.any(valid_b):
         continue
@@ -384,7 +385,7 @@ class GridScorer(object):
     # get the normalized heading unit vectors at each time step
     ux, uy = self._estimate_heading_unit_vectors(xs, ys, periodic=periodic)
 
-    # only include samples where we have valid position AND heading information
+    # only include samples where we have valid position AND heading information (help skil over bad data w/o dealing w a loop)
     valid_mask = (np.isfinite(x_base) & np.isfinite(y_base) &
                   np.isfinite(ux) & np.isfinite(uy))
     

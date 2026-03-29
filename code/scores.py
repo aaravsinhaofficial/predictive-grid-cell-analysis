@@ -1,5 +1,3 @@
-
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -318,16 +316,25 @@ class GridScorer(object):
       x_path = xs.copy()
       y_path = ys.copy()
 
+    # how much the position is changing between neighboring timesteps
     dx = np.gradient(x_path, axis=0)
     dy = np.gradient(y_path, axis=0)
-    norm = np.sqrt(dx**2 + dy**2)
+
+    # normalize dx and dy to the unit length
+    norm = np.sqrt(dx**2 + dy**2) # find magnitude of vector
+
+    #find which timesteps are safe to divide by 
     ux = np.full_like(dx, np.nan, dtype=float)
     uy = np.full_like(dy, np.nan, dtype=float)
     valid = np.isfinite(norm) & (norm > 1e-12)
+
+    # finally do the normalization for valid timesteps
     ux[valid] = dx[valid] / norm[valid]
     uy[valid] = dy[valid] / norm[valid]
 
     T, B = xs.shape
+
+    # handle missing data
     for b in range(B):
       valid_b = np.isfinite(ux[:, b]) & np.isfinite(uy[:, b])
       if not np.any(valid_b):
@@ -362,7 +369,10 @@ class GridScorer(object):
     if xs.shape != ys.shape or xs.ndim != 2:
       raise ValueError('xs and ys must share shape [T,B]')
 
+    # convert inputs to float np arrays
     shift_m = float(shift_cm) / 100.0
+
+    # unwrap coordinates for accurate heading estimation, but keep original wrapped
     if periodic:
       x_base = self._unwrap_coords(xs, axis=0)
       y_base = self._unwrap_coords(ys, axis=1)
@@ -370,14 +380,24 @@ class GridScorer(object):
       x_base = xs.copy()
       y_base = ys.copy()
 
+  
+    # get the normalized heading unit vectors at each time step
     ux, uy = self._estimate_heading_unit_vectors(xs, ys, periodic=periodic)
+
+    # only include samples where we have valid position AND heading information
     valid_mask = (np.isfinite(x_base) & np.isfinite(y_base) &
                   np.isfinite(ux) & np.isfinite(uy))
+    
+    # allocate arrays for the shifted positions, initialized to nan for invalid samples
     shifted_x = np.full_like(x_base, np.nan, dtype=float)
     shifted_y = np.full_like(y_base, np.nan, dtype=float)
+
+    # ux, uy is the direction the rat is facing. shift_m is the +d cm label (converted to meters). The addition moves the point forward along the heading by exactly that distance
+    # actually apply the shift along the heading direction
     shifted_x[valid_mask] = x_base[valid_mask] + shift_m * ux[valid_mask]
     shifted_y[valid_mask] = y_base[valid_mask] + shift_m * uy[valid_mask]
 
+    # deal with periodic wrapping if needed. only apply to valid samples since we want to keep invalid samples as nan
     if periodic:
       shifted_x[valid_mask] = self._wrap_coords(shifted_x[valid_mask], axis=0)
       shifted_y[valid_mask] = self._wrap_coords(shifted_y[valid_mask], axis=1)

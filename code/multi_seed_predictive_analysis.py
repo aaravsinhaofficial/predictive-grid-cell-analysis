@@ -28,6 +28,7 @@ from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
 from visualize import predictive_gridness_analysis
 from path_utils import analysis_dir_for_checkpoint
+from shift_utils import build_shift_values, shift_config_label, shift_values_to_cm
 from replicate_predictive_grid_figure import (
     classify_units,
     cm_per_step_from_positions,
@@ -511,12 +512,15 @@ def analyse_checkpoint(ckpt_path: str,
         res=args.res,
         n_batches=args.n_batches,
         Ng=Ng_eval,
+        shift_mode=args.shift_mode,
+        space_projection=args.space_projection,
     )
 
     cm_step = cm_per_step_from_positions(xs, ys)
-    lag_cm = np.array(lags, dtype=float) * cm_step
+    lag_cm = shift_values_to_cm(lags, args.shift_mode, cm_step)
+    print(f'  Shift mode: {shift_config_label(args.shift_mode, args.space_projection)}')
     print(f'  cm-per-step ≈ {cm_step:.3f} cm')
-    print(f'  Shift range: {lag_cm[0]:.1f} .. {lag_cm[-1]:.1f} cm ({len(lag_cm)} lags)')
+    print(f'  Shift range: {lag_cm[0]:.1f} .. {lag_cm[-1]:.1f} cm ({len(lag_cm)} samples)')
 
     zero_idx = lags.index(0)
     zero_scores = scores_60[zero_idx]
@@ -628,6 +632,9 @@ def analyse_checkpoint(ckpt_path: str,
 
     np.savez(
         os.path.join(out_dir, 'gridness_data.npz'),
+        shift_mode=np.array(args.shift_mode),
+        space_projection=np.array(args.space_projection),
+        shift_values=np.asarray(lags, dtype=float),
         lag_cm=lag_cm,
         scores_60=scores_60,
         zero_scores=zero_scores,
@@ -643,6 +650,9 @@ def analyse_checkpoint(ckpt_path: str,
     )
 
     diagnostics = {
+        'shift_mode': args.shift_mode,
+        'space_projection': args.space_projection,
+        'shift_values': np.asarray(lags, dtype=float).tolist(),
         'cm_per_step': cm_step,
         'lag_cm': lag_cm.tolist(),
         'zero_scores_mean': float(np.nanmean(zero_scores)),
@@ -727,8 +737,16 @@ def main():
                         help='How many low-grid units to plot.')
     parser.add_argument('--min_shift_cm', default=5.0, type=float,
                         help='Minimum spatial shift when searching for predictive peaks.')
+    parser.add_argument('--shift_mode', default='time', choices=['time', 'space'],
+                        help='Align activity by time steps or direct spatial displacement.')
+    parser.add_argument('--space_projection', default='path', choices=['path', 'heading'],
+                        help='When --shift_mode space, use arc-length along the realized path or heading-based projection.')
     parser.add_argument('--max_lag', default=20, type=int,
-                        help='Evaluate lags from -max_lag .. +max_lag.')
+                        help='When --shift_mode time, evaluate lags from -max_lag .. +max_lag.')
+    parser.add_argument('--max_shift_cm', default=20.0, type=float,
+                        help='When --shift_mode space, evaluate shifts from -max_shift_cm .. +max_shift_cm.')
+    parser.add_argument('--shift_step_cm', default=1.0, type=float,
+                        help='When --shift_mode space, spacing between evaluated shifts in cm.')
     parser.add_argument('--device', default=None,
                         help='Override device (cpu/cuda). Defaults to best available.')
     parser.add_argument('--ablation_batches', default=8, type=int,
@@ -743,7 +761,12 @@ def main():
     if not checkpoints:
         raise FileNotFoundError('No checkpoints matched the provided paths.')
 
-    lags = list(range(-args.max_lag, args.max_lag + 1))
+    lags = build_shift_values(
+        args.shift_mode,
+        max_lag=args.max_lag,
+        max_shift_cm=args.max_shift_cm,
+        shift_step_cm=args.shift_step_cm,
+    )
     for idx, path in enumerate(checkpoints):
         analyse_checkpoint(
             ckpt_path=path,

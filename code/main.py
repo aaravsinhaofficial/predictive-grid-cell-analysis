@@ -149,8 +149,16 @@ parser.add_argument('--grid_eval_interval',
 parser.add_argument('--grid_eval_lags',
                     nargs='+',
                     default=[0, 1, 2, 3, 4, 5],
-                    type=int,
-                    help='time-shift values (in steps) for predictive gridness scoring')
+                    type=float,
+                    help='shift values for predictive gridness scoring; steps in time mode, centimeters in space mode')
+parser.add_argument('--grid_eval_shift_mode',
+                    default='time',
+                    choices=['time', 'space'],
+                    help='align training diagnostics by time steps or direct spatial displacement')
+parser.add_argument('--grid_eval_space_projection',
+                    default='path',
+                    choices=['path', 'heading'],
+                    help='when grid-eval is in space mode, use arc-length path shifting or heading-based projection')
 parser.add_argument('--grid_eval_batches',
                     default=5,
                     type=int,

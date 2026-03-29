@@ -1,20 +1,4 @@
-# Copyright 2018 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
 
-"""Grid score calculations.
-"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -224,14 +208,252 @@ class GridScorer(object):
       if title is not None:
         ax.set_title(title)
 
-  def _predictive_scores_single(self, xs, ys, activations, lags, statistic='mean'):
-    """Compute gridness scores as a function of time lag for a single unit.
+  def _wrap_coords(self, coords, axis):
+    lo, hi = self._coords_range[axis]
+    period = hi - lo
+    if not np.isfinite(period) or period <= 0:
+      return np.asarray(coords, dtype=float)
+    return np.mod(np.asarray(coords, dtype=float) - lo, period) + lo
+
+  def _unwrap_coords(self, coords, axis):
+    coords = np.asarray(coords, dtype=float)
+    if coords.ndim != 2:
+      raise ValueError('coords must have shape [T,B]')
+    lo, hi = self._coords_range[axis]
+    period = hi - lo
+    if not np.isfinite(period) or period <= 0 or coords.shape[0] <= 1:
+      return coords.copy()
+
+    diffs = np.diff(coords, axis=0)
+    half_period = period / 2.0
+    diffs = diffs.copy()
+    diffs[diffs > half_period] -= period
+    diffs[diffs < -half_period] += period
+
+    unwrapped = np.empty_like(coords, dtype=float)
+    unwrapped[0] = coords[0]
+    unwrapped[1:] = coords[0:1] + np.cumsum(diffs, axis=0)
+    return unwrapped
+
+  def _shift_positions_by_space(self, xs, ys, shift_cm, periodic=False):
+    """Shift positions along each trajectory by signed arc length."""
+    xs = np.asarray(xs, dtype=float)
+    ys = np.asarray(ys, dtype=float)
+    if xs.shape != ys.shape or xs.ndim != 2:
+      raise ValueError('xs and ys must share shape [T,B]')
+
+    shift_m = float(shift_cm) / 100.0
+    if periodic:
+      x_path = self._unwrap_coords(xs, axis=0)
+      y_path = self._unwrap_coords(ys, axis=1)
+    else:
+      x_path = xs.copy()
+      y_path = ys.copy()
+
+    T, B = xs.shape
+    shifted_x = np.full((T, B), np.nan, dtype=float)
+    shifted_y = np.full((T, B), np.nan, dtype=float)
+    valid_mask = np.zeros((T, B), dtype=bool)
+
+    for b in range(B):
+      x_b = x_path[:, b]
+      y_b = y_path[:, b]
+      finite = np.isfinite(x_b) & np.isfinite(y_b)
+      if np.count_nonzero(finite) == 0:
+        continue
+
+      orig_idx = np.where(finite)[0]
+      x_valid = x_b[finite]
+      y_valid = y_b[finite]
+
+      if x_valid.size == 1:
+        if abs(shift_m) <= 1e-12:
+          idx0 = orig_idx[0]
+          shifted_x[idx0, b] = xs[idx0, b]
+          shifted_y[idx0, b] = ys[idx0, b]
+          valid_mask[idx0, b] = True
+        continue
+
+      seg_lengths = np.sqrt(np.diff(x_valid)**2 + np.diff(y_valid)**2)
+      cumdist = np.concatenate(([0.0], np.cumsum(seg_lengths)))
+      target = cumdist + shift_m
+      in_bounds = (target >= cumdist[0]) & (target <= cumdist[-1])
+      if not np.any(in_bounds):
+        continue
+
+      dist_unique, unique_idx = np.unique(cumdist, return_index=True)
+      x_unique = x_valid[unique_idx]
+      y_unique = y_valid[unique_idx]
+      if dist_unique.size == 1:
+        if abs(shift_m) <= 1e-12:
+          shifted_x[orig_idx, b] = xs[orig_idx, b]
+          shifted_y[orig_idx, b] = ys[orig_idx, b]
+          valid_mask[orig_idx, b] = True
+        continue
+
+      interp_x = np.interp(target[in_bounds], dist_unique, x_unique)
+      interp_y = np.interp(target[in_bounds], dist_unique, y_unique)
+      if periodic:
+        interp_x = self._wrap_coords(interp_x, axis=0)
+        interp_y = self._wrap_coords(interp_y, axis=1)
+
+      tgt_idx = orig_idx[in_bounds]
+      shifted_x[tgt_idx, b] = interp_x
+      shifted_y[tgt_idx, b] = interp_y
+      valid_mask[tgt_idx, b] = True
+
+    return shifted_x, shifted_y, valid_mask
+
+  def _estimate_heading_unit_vectors(self, xs, ys, periodic=False):
+    """Estimate per-sample heading unit vectors from trajectory tangents."""
+    xs = np.asarray(xs, dtype=float)
+    ys = np.asarray(ys, dtype=float)
+    if xs.shape != ys.shape or xs.ndim != 2:
+      raise ValueError('xs and ys must share shape [T,B]')
+
+    if periodic:
+      x_path = self._unwrap_coords(xs, axis=0)
+      y_path = self._unwrap_coords(ys, axis=1)
+    else:
+      x_path = xs.copy()
+      y_path = ys.copy()
+
+    dx = np.gradient(x_path, axis=0)
+    dy = np.gradient(y_path, axis=0)
+    norm = np.sqrt(dx**2 + dy**2)
+    ux = np.full_like(dx, np.nan, dtype=float)
+    uy = np.full_like(dy, np.nan, dtype=float)
+    valid = np.isfinite(norm) & (norm > 1e-12)
+    ux[valid] = dx[valid] / norm[valid]
+    uy[valid] = dy[valid] / norm[valid]
+
+    T, B = xs.shape
+    for b in range(B):
+      valid_b = np.isfinite(ux[:, b]) & np.isfinite(uy[:, b])
+      if not np.any(valid_b):
+        continue
+      valid_idx = np.where(valid_b)[0]
+      first = valid_idx[0]
+      last = valid_idx[-1]
+      for t in range(first - 1, -1, -1):
+        ux[t, b] = ux[first, b]
+        uy[t, b] = uy[first, b]
+      prev = first
+      for t in valid_idx[1:]:
+        for fill_t in range(prev + 1, t):
+          ux[fill_t, b] = ux[prev, b]
+          uy[fill_t, b] = uy[prev, b]
+        prev = t
+      for t in range(last + 1, T):
+        ux[t, b] = ux[last, b]
+        uy[t, b] = uy[last, b]
+
+      norm_b = np.sqrt(ux[:, b]**2 + uy[:, b]**2)
+      good = np.isfinite(norm_b) & (norm_b > 1e-12)
+      ux[good, b] /= norm_b[good]
+      uy[good, b] /= norm_b[good]
+
+    return ux, uy
+
+  def _shift_positions_by_heading(self, xs, ys, shift_cm, periodic=False):
+    """Project positions by signed distance along the local heading direction."""
+    xs = np.asarray(xs, dtype=float)
+    ys = np.asarray(ys, dtype=float)
+    if xs.shape != ys.shape or xs.ndim != 2:
+      raise ValueError('xs and ys must share shape [T,B]')
+
+    shift_m = float(shift_cm) / 100.0
+    if periodic:
+      x_base = self._unwrap_coords(xs, axis=0)
+      y_base = self._unwrap_coords(ys, axis=1)
+    else:
+      x_base = xs.copy()
+      y_base = ys.copy()
+
+    ux, uy = self._estimate_heading_unit_vectors(xs, ys, periodic=periodic)
+    valid_mask = (np.isfinite(x_base) & np.isfinite(y_base) &
+                  np.isfinite(ux) & np.isfinite(uy))
+    shifted_x = np.full_like(x_base, np.nan, dtype=float)
+    shifted_y = np.full_like(y_base, np.nan, dtype=float)
+    shifted_x[valid_mask] = x_base[valid_mask] + shift_m * ux[valid_mask]
+    shifted_y[valid_mask] = y_base[valid_mask] + shift_m * uy[valid_mask]
+
+    if periodic:
+      shifted_x[valid_mask] = self._wrap_coords(shifted_x[valid_mask], axis=0)
+      shifted_y[valid_mask] = self._wrap_coords(shifted_y[valid_mask], axis=1)
+
+    return shifted_x, shifted_y, valid_mask
+
+  def aligned_samples(self, xs, ys, activations, shift, shift_mode='time', periodic=False, space_projection='path'):
+    """Return flattened position/activity samples aligned by time or space."""
+    xs = np.asarray(xs)
+    ys = np.asarray(ys)
+    activations = np.asarray(activations)
+
+    if xs.shape != ys.shape or xs.ndim != 2:
+      raise ValueError('xs and ys must share shape [T,B]')
+    if activations.shape[:2] != xs.shape:
+      raise ValueError('activations must have leading shape [T,B]')
+
+    if shift_mode == 'time':
+      shift_steps = int(round(float(shift)))
+      if not np.isclose(shift_steps, float(shift)):
+        raise ValueError('time shifts must be integer-valued')
+      T = xs.shape[0]
+      if abs(shift_steps) >= T:
+        return np.array([]), np.array([]), np.array([])
+
+      if shift_steps >= 0:
+        xs_l = xs[shift_steps:]
+        ys_l = ys[shift_steps:]
+        a_l = activations[:T - shift_steps]
+      else:
+        k = -shift_steps
+        xs_l = xs[:T - k]
+        ys_l = ys[:T - k]
+        a_l = activations[k:]
+
+      flat_x = xs_l.reshape(-1)
+      flat_y = ys_l.reshape(-1)
+      if activations.ndim == 2:
+        flat_a = a_l.reshape(-1)
+      else:
+        flat_a = a_l.reshape(-1, activations.shape[-1])
+      return flat_x, flat_y, flat_a
+
+    if shift_mode == 'space':
+      if space_projection == 'path':
+        shifted_x, shifted_y, valid_mask = self._shift_positions_by_space(xs, ys, shift, periodic=periodic)
+      elif space_projection == 'heading':
+        shifted_x, shifted_y, valid_mask = self._shift_positions_by_heading(xs, ys, shift, periodic=periodic)
+      else:
+        raise ValueError("space_projection must be 'path' or 'heading'")
+      if not np.any(valid_mask):
+        return np.array([]), np.array([]), np.array([])
+      flat_x = shifted_x[valid_mask]
+      flat_y = shifted_y[valid_mask]
+      if activations.ndim == 2:
+        flat_a = activations[valid_mask]
+      else:
+        flat_a = activations[valid_mask, :]
+      return flat_x, flat_y, flat_a
+
+    raise ValueError("shift_mode must be 'time' or 'space'")
+
+  def _predictive_scores_single(self, xs, ys, activations, lags, statistic='mean', shift_mode='time', periodic=False, space_projection='path'):
+    """Compute gridness scores as a function of time or spatial shift for one unit.
 
     Args:
       xs, ys: Arrays shaped [T, B] with positions per time step and batch.
       activations: Array shaped [T, B] with unit activation over time/batch.
-      lags: Iterable of integer lags (positive = predict future position).
+      lags: Iterable of shift values. In time mode these are integer steps; in
+        space mode they are signed centimeters along the trajectory.
       statistic: Aggregation for ratemap binning.
+      shift_mode: 'time' or 'space'.
+      periodic: Whether to wrap interpolated spatial shifts to the box.
+      space_projection: In spatial mode, 'path' uses arc-length interpolation
+        along the realized trajectory and 'heading' projects along the local
+        movement direction.
 
     Returns:
       (scores_60, scores_90): Arrays of shape [len(lags)].
@@ -241,52 +463,48 @@ class GridScorer(object):
     activations = np.asarray(activations)
     assert xs.shape == ys.shape == activations.shape, 'xs, ys, activations must have same [T,B] shape'
 
-    T = activations.shape[0]
     scores_60 = []
     scores_90 = []
     for lag in lags:
-      if lag >= 0:
-        # Align activations[t] with position[t+lag]
-        if T - lag <= 1:
-          scores_60.append(np.nan)
-          scores_90.append(np.nan)
-          continue
-        xs_l = xs[lag:]
-        ys_l = ys[lag:]
-        a_l = activations[:T - lag]
-      else:
-        k = -lag
-        if T - k <= 1:
-          scores_60.append(np.nan)
-          scores_90.append(np.nan)
-          continue
-        xs_l = xs[:T - k]
-        ys_l = ys[:T - k]
-        a_l = activations[k:]
+      flat_x, flat_y, flat_a = self.aligned_samples(
+          xs,
+          ys,
+          activations,
+          lag,
+          shift_mode=shift_mode,
+          periodic=periodic,
+          space_projection=space_projection)
+      if flat_x.size <= 1 or flat_y.size <= 1 or flat_a.size <= 1:
+        scores_60.append(np.nan)
+        scores_90.append(np.nan)
+        continue
 
-      # Flatten and bin into ratemap with future (or past) positions
-      rm = self.calculate_ratemap(xs_l.reshape(-1), ys_l.reshape(-1), a_l.reshape(-1), statistic=statistic)
+      rm = self.calculate_ratemap(flat_x, flat_y, flat_a, statistic=statistic)
       s60, s90, _, _, _, _ = self.get_scores(rm)
       scores_60.append(s60)
       scores_90.append(s90)
 
     return np.asarray(scores_60), np.asarray(scores_90)
 
-  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean'):
-    """Predictive gridness across time lags.
+  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path'):
+    """Predictive gridness across temporal or spatial shifts.
 
-    Computes gridness (60° and 90°) for activations aligned to future or past
-    positions. Positive lag means "predictive" (activity at t vs position at t+lag).
+    Computes gridness (60° and 90°) for activations aligned to future/past
+    positions in time mode or to forward/backward trajectory positions in
+    space mode. Positive shifts are predictive in either case.
 
     Args:
       xs, ys: Arrays of shape [T, B] (positions over time and batch).
       activations:
         - shape [T, B] for a single unit, or
         - shape [T, B, Ng] for multiple units.
-      lags: Iterable of integer time lags to evaluate.
+      lags: Iterable of shift values to evaluate.
       unit_idx: If activations is 3D, optionally select a unit index. If None,
         returns scores for all units.
       statistic: Aggregation for ratemap binning.
+      shift_mode: 'time' or 'space'.
+      periodic: Whether to wrap interpolated spatial shifts to the box.
+      space_projection: In spatial mode, 'path' or 'heading'.
 
     Returns:
       If activations is 2D or unit_idx is provided: (scores_60, scores_90)
@@ -299,36 +517,69 @@ class GridScorer(object):
     activations = np.asarray(activations)
 
     if activations.ndim == 2:
-      return self._predictive_scores_single(xs, ys, activations, lags, statistic)
+      return self._predictive_scores_single(
+          xs,
+          ys,
+          activations,
+          lags,
+          statistic=statistic,
+          shift_mode=shift_mode,
+          periodic=periodic,
+          space_projection=space_projection)
     elif activations.ndim == 3:
       T, B, Ng = activations.shape
       if unit_idx is not None:
-        return self._predictive_scores_single(xs, ys, activations[:, :, unit_idx], lags, statistic)
+        return self._predictive_scores_single(
+            xs,
+            ys,
+            activations[:, :, unit_idx],
+            lags,
+            statistic=statistic,
+            shift_mode=shift_mode,
+            periodic=periodic,
+            space_projection=space_projection)
       # All units
       scores_60 = np.zeros((len(lags), Ng))
       scores_90 = np.zeros((len(lags), Ng))
       for u in range(Ng):
-        s60, s90 = self._predictive_scores_single(xs, ys, activations[:, :, u], lags, statistic)
+        s60, s90 = self._predictive_scores_single(
+            xs,
+            ys,
+            activations[:, :, u],
+            lags,
+            statistic=statistic,
+            shift_mode=shift_mode,
+            periodic=periodic,
+            space_projection=space_projection)
         scores_60[:, u] = s60
         scores_90[:, u] = s90
       return scores_60, scores_90
     else:
       raise ValueError('activations must have shape [T,B] or [T,B,Ng]')
 
-  def best_predictive_lag(self, xs, ys, activations, lags, unit_idx=None, metric='60', statistic='mean'):
-    """Return best lag(s) maximizing gridness.
+  def best_predictive_lag(self, xs, ys, activations, lags, unit_idx=None, metric='60', statistic='mean', shift_mode='time', periodic=False, space_projection='path'):
+    """Return best shift(s) maximizing gridness.
 
     Args:
       xs, ys: [T,B]
       activations: [T,B] or [T,B,Ng]
-      lags: iterable of ints
+      lags: iterable of shift values
       unit_idx: optional unit index when activations is 3D
       metric: '60' or '90'
     Returns:
       If single unit: (best_lag, best_score)
       If Ng units: (best_lags, best_scores) with shape [Ng]
     """
-    s60, s90 = self.predictive_grid_scores(xs, ys, activations, lags, unit_idx=unit_idx, statistic=statistic)
+    s60, s90 = self.predictive_grid_scores(
+        xs,
+        ys,
+        activations,
+        lags,
+        unit_idx=unit_idx,
+        statistic=statistic,
+        shift_mode=shift_mode,
+        periodic=periodic,
+        space_projection=space_projection)
     if activations.ndim == 2 or unit_idx is not None:
       scores = s60 if metric == '60' else s90
       idx = int(np.nanargmax(scores))
@@ -340,19 +591,20 @@ class GridScorer(object):
       best_scores = scores[idxs, np.arange(scores.shape[1])]
       return best_lags, best_scores
 
-  def get_scores_with_shift(self, xs, ys, activations, shift, unit_idx=None, statistic='mean', return_maps=False):
-    """Gridness at a specific time shift.
-
-    Positive shift K aligns activity at t with position at t+K (predictive).
-    Negative shift aligns activity at t with position at t-K (postdictive).
+  def get_scores_with_shift(self, xs, ys, activations, shift, unit_idx=None, statistic='mean', return_maps=False, shift_mode='time', periodic=False, space_projection='path'):
+    """Gridness at a specific time-step or spatial shift.
 
     Args:
       xs, ys: Arrays [T,B] with positions over time and batch.
       activations: [T,B] for one unit or [T,B,Ng] for many units.
-      shift: int, time shift to evaluate.
+      shift: shift value to evaluate. In time mode this is integer-valued
+        steps; in space mode it is centimeters along the trajectory.
       unit_idx: optional int, choose a single unit when activations is 3D.
       statistic: ratemap aggregation (default 'mean').
       return_maps: if True and single unit is selected, also return (ratemap, sac).
+      shift_mode: 'time' or 'space'.
+      periodic: Whether to wrap interpolated spatial shifts to the box.
+      space_projection: In spatial mode, 'path' or 'heading'.
 
     Returns:
       If single unit: (score_60, score_90[, ratemap, sac]).
@@ -362,52 +614,39 @@ class GridScorer(object):
     ys = np.asarray(ys)
     activations = np.asarray(activations)
 
-    T = xs.shape[0]
-    if abs(shift) >= T:
-      # Not enough overlap to compute anything meaningful
-      if return_maps:
-        return np.nan, np.nan, None, None
-      return np.nan, np.nan
-
-    if shift >= 0:
-      xs_l = xs[shift:]
-      ys_l = ys[shift:]
-      if activations.ndim == 2:
-        a_l = activations[:activations.shape[0] - shift]
-      else:
-        a_l = activations[:activations.shape[0] - shift]
-    else:
-      k = -shift
-      xs_l = xs[:xs.shape[0] - k]
-      ys_l = ys[:ys.shape[0] - k]
-      if activations.ndim == 2:
-        a_l = activations[k:]
-      else:
-        a_l = activations[k:]
-
-    if xs_l.size == 0 or ys_l.size == 0:
+    flat_x, flat_y, flat_a = self.aligned_samples(
+        xs,
+        ys,
+        activations,
+        shift,
+        shift_mode=shift_mode,
+        periodic=periodic,
+        space_projection=space_projection)
+    if flat_x.size == 0 or flat_y.size == 0 or flat_a.size == 0:
       if return_maps:
         return np.nan, np.nan, None, None
       return np.nan, np.nan
 
     if activations.ndim == 2 or unit_idx is not None:
       if activations.ndim == 3:
-        a_use = a_l[:, :, unit_idx]
+        if flat_a.ndim != 2:
+          raise ValueError('Expected flattened multi-unit activations with shape [N,Ng]')
+        a_use = flat_a[:, unit_idx]
       else:
-        a_use = a_l
-      rm = self.calculate_ratemap(xs_l.reshape(-1), ys_l.reshape(-1), a_use.reshape(-1), statistic=statistic)
+        a_use = flat_a
+      rm = self.calculate_ratemap(flat_x, flat_y, a_use.reshape(-1), statistic=statistic)
       s60, s90, _, _, sac, _ = self.get_scores(rm)
       if return_maps:
         return s60, s90, rm, sac
       return s60, s90
     elif activations.ndim == 3:
-      T, B, Ng = a_l.shape
+      if flat_a.ndim != 2:
+        raise ValueError('Expected flattened multi-unit activations with shape [N,Ng]')
+      Ng = flat_a.shape[1]
       scores_60 = np.zeros((Ng,), dtype=np.float32)
       scores_90 = np.zeros((Ng,), dtype=np.float32)
-      flat_x = xs_l.reshape(-1)
-      flat_y = ys_l.reshape(-1)
       for u in range(Ng):
-        rm = self.calculate_ratemap(flat_x, flat_y, a_l[:, :, u].reshape(-1), statistic=statistic)
+        rm = self.calculate_ratemap(flat_x, flat_y, flat_a[:, u], statistic=statistic)
         s60, s90, _, _, _, _ = self.get_scores(rm)
         scores_60[u] = s60
         scores_90[u] = s90

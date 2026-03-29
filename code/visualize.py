@@ -9,6 +9,7 @@ import cv2
 from typing import List, Optional, Tuple
 
 from scores import GridScorer
+from shift_utils import shift_axis_label
 
 
 def concat_images(images, image_width, spacer_size):
@@ -199,8 +200,10 @@ def predictive_gridness_analysis(model, trajectory_generator, options,
                                  res: int = 20,
                                  n_batches: int = 20,
                                  Ng: int = 512,
-                                 idxs: Optional[np.ndarray] = None):
-    """Compute predictive gridness (60° and 90°) across lags for many units.
+                                 idxs: Optional[np.ndarray] = None,
+                                 shift_mode: str = 'time',
+                                 space_projection: str = 'path'):
+    """Compute predictive gridness (60° and 90°) across shifts for many units.
 
     Returns:
       scores_60: [L, Ng]
@@ -217,7 +220,15 @@ def predictive_gridness_analysis(model, trajectory_generator, options,
     masks_parameters = zip(starts, ends.tolist())
     scorer = GridScorer(res, coord_range, masks_parameters)
 
-    s60, s90 = scorer.predictive_grid_scores(xs, ys, activations, lags)
+    s60, s90 = scorer.predictive_grid_scores(
+        xs,
+        ys,
+        activations,
+        lags,
+        shift_mode=shift_mode,
+        periodic=bool(getattr(options, 'periodic', False)),
+        space_projection=space_projection,
+    )
     return s60, s90, xs, ys, activations, scorer
 
 
@@ -227,8 +238,9 @@ def plot_predictive_gridness_per_cell(scores_60: np.ndarray,
                                       cell_indices: Optional[List[int]] = None,
                                       cols: int = 8,
                                       figsize: Tuple[int, int] = (16, 10),
-                                      suptitle: Optional[str] = None):
-    """Plot each selected cell's gridness across all shifts.
+                                      suptitle: Optional[str] = None,
+                                      shift_mode: str = 'time'):
+    """Plot each selected cell's gridness across all tested shifts.
 
     Args:
       scores_60: [L, Ng]
@@ -253,7 +265,7 @@ def plot_predictive_gridness_per_cell(scores_60: np.ndarray,
             ax.plot(x, scores_90[:, u], label='Grid-90', color='C1', alpha=0.7)
         ax.axhline(0, color='k', lw=0.5)
         ax.set_title(f'Cell {u}', fontsize=9)
-        ax.set_xlabel('Shift (time)')
+        ax.set_xlabel(shift_axis_label(shift_mode))
         ax.set_ylabel('Score')
         ax.grid(True, alpha=0.2)
         if i == 0:
@@ -269,13 +281,13 @@ def plot_predictive_gridness_per_cell(scores_60: np.ndarray,
     return fig
 
 
-def plot_predictive_heatmap(scores_60: np.ndarray, lags: List[int], figsize: Tuple[int, int] = (10, 6), title: Optional[str] = None):
+def plot_predictive_heatmap(scores_60: np.ndarray, lags: List[int], figsize: Tuple[int, int] = (10, 6), title: Optional[str] = None, shift_mode: str = 'time'):
     """Plot a heatmap of predictive gridness for all units across shifts."""
     fig, ax = plt.subplots(1, 1, figsize=figsize)
     im = ax.imshow(scores_60.T, aspect='auto', origin='lower',
                    extent=[min(lags), max(lags), -0.5, scores_60.shape[1]-0.5],
                    cmap='viridis')
-    ax.set_xlabel('Shift (time)')
+    ax.set_xlabel(shift_axis_label(shift_mode))
     ax.set_ylabel('Unit index')
     if title:
         ax.set_title(title)

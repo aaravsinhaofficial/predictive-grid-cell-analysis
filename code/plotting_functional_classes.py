@@ -11,6 +11,7 @@ from model import RNN
 from trajectory_generator import TrajectoryGenerator
 from visualize import collect_sequences
 from scores import GridScorer
+from shift_utils import build_shift_values
 
 
 def cm_per_step_from_positions(xs, ys):
@@ -66,8 +67,19 @@ def head_direction_tuning(xs, ys, activations_u, n_bins=36):
     return bin_centers, tuning, float(r)
 
 
-def ratemap_and_sac_for_shift(scorer: GridScorer, xs, ys, activations_u, shift: int):
-    s60, s90, rm, sac = scorer.get_scores_with_shift(xs, ys, activations_u, shift, statistic='mean', return_maps=True)
+def ratemap_and_sac_for_shift(scorer: GridScorer, xs, ys, activations_u, shift,
+                              shift_mode='time', periodic=False, space_projection='path'):
+    s60, s90, rm, sac = scorer.get_scores_with_shift(
+        xs,
+        ys,
+        activations_u,
+        shift,
+        statistic='mean',
+        return_maps=True,
+        shift_mode=shift_mode,
+        periodic=periodic,
+        space_projection=space_projection,
+    )
     return rm, sac, s60, s90
 
 
@@ -80,7 +92,9 @@ def build_scorer(res, options):
     return GridScorer(res, coord_range, masks_parameters)
 
 
-def plot_predictive_row(fig, gs_row, scorer, xs, ys, activations_u, pos_shifts_cm, cm_per_step, res=20, title_prefix='Cell'):
+def plot_predictive_row(fig, gs_row, scorer, xs, ys, activations_u, pos_shifts_cm, cm_per_step,
+                        res=20, title_prefix='Cell', shift_mode='time', periodic=False,
+                        curve_shift_step_cm=1.0, space_projection='path'):
     """Plot a single cell row replicating predictive grid cell panel.
 
     gs_row: GridSpec row with subgridspec layout.
@@ -93,13 +107,17 @@ def plot_predictive_row(fig, gs_row, scorer, xs, ys, activations_u, pos_shifts_c
     ax_polar = fig.add_subplot(gs_row[2], projection='polar')
 
     # Original (shift=0)
-    rm0, sac0, _, _ = ratemap_and_sac_for_shift(scorer, xs, ys, activations_u, 0)
+    rm0, sac0, _, _ = ratemap_and_sac_for_shift(
+        scorer, xs, ys, activations_u, 0, shift_mode=shift_mode, periodic=periodic,
+        space_projection=space_projection)
     # Pre-compute vmin/vmax for rate maps across all shown shifts for consistent color scaling
     rm_list = [rm0]
     sac_max = np.nanmax(np.abs(sac0)) if sac0 is not None else None
     for cm in pos_shifts_cm:
-        steps = int(np.round(cm / cm_per_step)) if cm_per_step > 0 else 0
-        rm_tmp, sac_tmp, _, _ = ratemap_and_sac_for_shift(scorer, xs, ys, activations_u, steps)
+        shift_val = int(np.round(cm / cm_per_step)) if shift_mode == 'time' and cm_per_step > 0 else cm
+        rm_tmp, sac_tmp, _, _ = ratemap_and_sac_for_shift(
+            scorer, xs, ys, activations_u, shift_val, shift_mode=shift_mode, periodic=periodic,
+            space_projection=space_projection)
         if rm_tmp is not None:
             rm_list.append(rm_tmp)
         if sac_tmp is not None:
@@ -129,8 +147,10 @@ def plot_predictive_row(fig, gs_row, scorer, xs, ys, activations_u, pos_shifts_c
 
     # Shifted (future) panels
     for j, cm in enumerate(pos_shifts_cm, start=1):
-        steps = int(np.round(cm / cm_per_step)) if cm_per_step > 0 else 0
-        rm, sac, _, _ = ratemap_and_sac_for_shift(scorer, xs, ys, activations_u, steps)
+        shift_val = int(np.round(cm / cm_per_step)) if shift_mode == 'time' and cm_per_step > 0 else cm
+        rm, sac, _, _ = ratemap_and_sac_for_shift(
+            scorer, xs, ys, activations_u, shift_val, shift_mode=shift_mode, periodic=periodic,
+            space_projection=space_projection)
         ax_rm = fig.add_subplot(gs_imgs[0, j])
         rm_vis = ndi.gaussian_filter(rm, sigma=0.6) if rm is not None else rm
         ax_rm.imshow(rm_vis, cmap='jet', interpolation='nearest', vmin=rm_vmin, vmax=rm_vmax)
@@ -147,19 +167,35 @@ def plot_predictive_row(fig, gs_row, scorer, xs, ys, activations_u, pos_shifts_c
 
     # Gridness vs projected position (sweep lags)
     max_cm = max(pos_shifts_cm) if pos_shifts_cm else 30
-    # Symmetric range around zero (in steps)
-    max_steps = int(np.ceil(max_cm / cm_per_step)) if cm_per_step > 0 else 10
-    # Respect sequence length to avoid empty overlap
-    T = xs.shape[0]
-    max_allowed = max(1, T - 2)
-    span = min(max_steps * 5, max_allowed)
-    lags = list(range(-span, span + 1))
+    if shift_mode == 'time':
+        max_steps = int(np.ceil(max_cm / cm_per_step)) if cm_per_step > 0 else 10
+        T = xs.shape[0]
+        max_allowed = max(1, T - 2)
+        span = min(max_steps * 5, max_allowed)
+        lags = list(range(-span, span + 1))
+        x_cm = np.array(lags, dtype=float) * cm_per_step
+    else:
+        span_cm = float(max_cm) * 5.0
+        lags = build_shift_values(
+            'space',
+            max_shift_cm=span_cm,
+            shift_step_cm=curve_shift_step_cm,
+        )
+        x_cm = np.asarray(lags, dtype=float)
     s60 = []
     for k in lags:
-        s, _ = scorer.get_scores_with_shift(xs, ys, activations_u, k, statistic='mean')
+        s, _ = scorer.get_scores_with_shift(
+            xs,
+            ys,
+            activations_u,
+            k,
+            statistic='mean',
+            shift_mode=shift_mode,
+            periodic=periodic,
+            space_projection=space_projection,
+        )
         s60.append(s)
     s60 = np.array(s60)
-    x_cm = np.array(lags) * cm_per_step
     ax_curve.plot(x_cm, s60, color='#2C6BB0', lw=2.5)
     ax_curve.axhline(0, color='k', lw=0.8)
     ax_curve.axvline(0, color='k', lw=0.8, ls='--')
@@ -202,7 +238,10 @@ def predictive_figure(options,
                       Ng: int = 512,
                       cells: list = None,
                       pos_shifts_cm=(5, 10, 15, 20),
-                      save_path: str = None):
+                      save_path: str = None,
+                      shift_mode: str = 'time',
+                      curve_shift_step_cm: float = 1.0,
+                      space_projection: str = 'path'):
     """Replicate predictive grid cell panels for selected cells.
 
     - Aggregates many trajectories to build xs, ys, and activations.
@@ -223,18 +262,24 @@ def predictive_figure(options,
     cm_step = cm_per_step_from_positions(xs, ys)
 
     scorer = build_scorer(res, options)
+    periodic = bool(getattr(options, 'periodic', False))
 
     # Choose cells
     Ng_avail = activations.shape[2]
     if cells is None or len(cells) == 0:
         # Rank by max predictive gridness over a coarse lag sweep
-        coarse_lags = list(range(-10, 11))
+        if shift_mode == 'time':
+            coarse_lags = list(range(-10, 11))
+        else:
+            coarse_lags = build_shift_values('space', max_shift_cm=max(max(pos_shifts_cm), 10.0), shift_step_cm=2.0)
         s60 = np.zeros((len(coarse_lags), Ng_avail))
         for u in range(Ng_avail):
             a_u = activations[:, :, u]
             vals = []
             for k in coarse_lags:
-                s, _ = scorer.get_scores_with_shift(xs, ys, a_u, k)
+                s, _ = scorer.get_scores_with_shift(
+                    xs, ys, a_u, k, shift_mode=shift_mode, periodic=periodic,
+                    space_projection=space_projection)
                 vals.append(s)
             s60[:, u] = vals
         order = np.argsort(np.nanmax(s60, axis=0))[::-1]
@@ -249,7 +294,22 @@ def predictive_figure(options,
     for i, u in enumerate(cells):
         a_u = activations[:, :, u]
         row_spec = gridspec.GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[i], width_ratios=[4.0, 2.3, 1.0])
-        plot_predictive_row(fig, row_spec, scorer, xs, ys, a_u, pos_shifts_cm, cm_step, res=res, title_prefix=f'Cell #{u}')
+        plot_predictive_row(
+            fig,
+            row_spec,
+            scorer,
+            xs,
+            ys,
+            a_u,
+            pos_shifts_cm,
+            cm_step,
+            res=res,
+            title_prefix=f'Cell #{u}',
+            shift_mode=shift_mode,
+            periodic=periodic,
+            curve_shift_step_cm=curve_shift_step_cm,
+            space_projection=space_projection,
+        )
 
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -289,6 +349,12 @@ def main():
     parser.add_argument('--Ng_use', default=512, type=int, help='How many units to analyze.')
     parser.add_argument('--cells', default=None, help='Comma separated indices of cells to plot; if omitted, pick top 3.')
     parser.add_argument('--pos_shifts_cm', default='5,10,15,20', help='Positive position shifts (cm) to display next to original.')
+    parser.add_argument('--shift_mode', default='time', choices=['time', 'space'],
+                        help='Align displayed shifts by time steps or direct spatial displacement.')
+    parser.add_argument('--space_projection', default='path', choices=['path', 'heading'],
+                        help='When --shift_mode space, use arc-length along the trajectory or heading-based projection.')
+    parser.add_argument('--curve_shift_step_cm', default=1.0, type=float,
+                        help='Curve sampling step in cm when --shift_mode space.')
 
     args = parser.parse_args()
     cells = _parse_cells(args.cells)
@@ -312,7 +378,10 @@ def main():
                                         Ng=args.Ng_use,
                                         cells=cells,
                                         pos_shifts_cm=pos_shifts_cm,
-                                        save_path=args.save_path)
+                                        save_path=args.save_path,
+                                        shift_mode=args.shift_mode,
+                                        curve_shift_step_cm=args.curve_shift_step_cm,
+                                        space_projection=args.space_projection)
     if args.save_path is None:
         plt.show()
 

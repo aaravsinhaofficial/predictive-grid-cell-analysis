@@ -38,8 +38,9 @@ from visualize import collect_sequences
 from path_utils import analysis_dir_for_checkpoint, analysis_summary_dir, model_name_from_checkpoint
 
 
-def parse_int_list(arg: str) -> List[int]:
-    return [int(x) for x in arg.split(",") if x.strip()]
+def parse_shift_list(arg: str, shift_mode: str) -> List[float]:
+    caster = int if shift_mode == "time" else float
+    return [caster(x) for x in arg.split(",") if x.strip()]
 
 
 def load_gridness_data(ckpt_path: Path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -241,6 +242,9 @@ def plot_unit_row(
     gs_curve_y: np.ndarray,
     unit_label: str,
     show_headers: bool,
+    shift_mode: str,
+    periodic: bool,
+    space_projection: str,
 ) -> List[plt.Axes]:
     gs_row = row_spec.subgridspec(2, 4, width_ratios=[1.0, 1.0, 1.0, 1.2], wspace=0.12, hspace=0.08)
     ax_curve = fig.add_subplot(gs_row[:, 3])
@@ -249,7 +253,16 @@ def plot_unit_row(
     rms: List[np.ndarray] = []
     sacs: List[np.ndarray] = []
     for shift in shifts:
-        rm, sac, _, _ = ratemap_and_sac_for_shift(scorer, xs, ys, activations_u, shift)
+        rm, sac, _, _ = ratemap_and_sac_for_shift(
+            scorer,
+            xs,
+            ys,
+            activations_u,
+            shift,
+            shift_mode=shift_mode,
+            periodic=periodic,
+            space_projection=space_projection,
+        )
         rms.append(rm)
         sacs.append(sac)
 
@@ -266,7 +279,8 @@ def plot_unit_row(
         rm_vis = ndi.gaussian_filter(rm, sigma=0.6) if rm is not None else rm
         ax_rm.imshow(rm_vis, cmap="jet", interpolation="nearest", vmin=rm_vmin, vmax=rm_vmax)
         if show_headers:
-            ax_rm.set_title(f"delta {shift}", fontsize=8)
+            units = "cm" if shift_mode == "space" else "steps"
+            ax_rm.set_title(f"delta {shift:g} {units}", fontsize=8)
         ax_rm.axis("off")
         axes.append(ax_rm)
         if j == 0:
@@ -290,7 +304,7 @@ def plot_unit_row(
     ax_curve.plot(gs_curve_x, gs_curve_y, color="#2C6BB0", lw=2.0)
     ax_curve.axhline(0, color="k", lw=0.6)
     ax_curve.axvline(0, color="k", lw=0.6, ls="--")
-    ax_curve.set_xlabel("Shift (steps)", fontsize=8)
+    ax_curve.set_xlabel("Position shift (cm)", fontsize=8)
     ax_curve.set_ylabel("GS (60 deg)", fontsize=8)
     ax_curve.set_title("GS vs shift", fontsize=9)
     ax_curve.grid(True, alpha=0.25, lw=0.6)
@@ -339,19 +353,20 @@ def render_summary(
         min_ratio=min_ratio,
     )
 
-    shifts = parse_int_list(args.panel_shifts)
+    shifts = parse_shift_list(args.panel_shifts, args.shift_mode)
     max_shift = max([abs(s) for s in shifts], default=0)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     options = build_options(ckpt_path, device=device)
     options.batch_size = args.batch_size
-    if max_shift > 0:
+    if max_shift > 0 and args.shift_mode == "time":
         options.sequence_length = max(int(options.sequence_length), int(max_shift + 5))
     place_cells = PlaceCells(options)
     model = RNN(options, place_cells).to(options.device)
     model.load_state_dict(torch.load(ckpt_path, map_location=options.device))
     model.eval()
     traj_gen = TrajectoryGenerator(options, place_cells)
+    periodic = bool(getattr(options, "periodic", False))
 
     Ng_use = max(args.Ng_use, len(selected_units))
     xs, ys, activations = collect_sequences(
@@ -363,7 +378,6 @@ def render_summary(
         idxs=selected_units,
     )
     zero_idx = int(np.nanargmin(np.abs(lag_cm)))
-    lag_steps = np.arange(len(lag_cm)) - zero_idx
     scorer = build_scorer(args.res, options)
 
     n_units = len(selected_units)
@@ -389,10 +403,13 @@ def render_summary(
             ys,
             a_u,
             shifts,
-            lag_steps,
+            lag_cm,
             gs_curve_y,
             unit_label=f"Unit {unit}",
             show_headers=show_headers,
+            shift_mode=args.shift_mode,
+            periodic=periodic,
+            space_projection=args.space_projection,
         ))
 
     # Panel B: heatmap (or reuse saved predictive_classes image)
@@ -577,6 +594,10 @@ def main() -> None:
     parser.add_argument("--min_shift_cm", type=float, default=5.0)
     parser.add_argument("--num_units", type=int, default=4)
     parser.add_argument("--panel_shifts", type=str, default="0,5,10")
+    parser.add_argument("--shift_mode", type=str, default="time", choices=["time", "space"],
+                        help="Interpret panel-shift samples as time steps or direct spatial displacement.")
+    parser.add_argument("--space_projection", type=str, default="path", choices=["path", "heading"],
+                        help="When --shift_mode space, use arc-length along the trajectory or heading-based projection.")
     parser.add_argument(
         "--unit_rank",
         type=str,

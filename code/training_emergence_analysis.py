@@ -22,6 +22,7 @@ from visualize import predictive_gridness_analysis
 from multi_seed_predictive_analysis import build_options, infer_dims_from_state
 from replicate_predictive_grid_figure import cm_per_step_from_positions
 from scores import GridScorer
+from shift_utils import build_shift_values, shift_values_to_cm
 
 
 def _extract_state(raw: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -254,7 +255,15 @@ def analyze_checkpoint(ckpt_path: str,
     if use_cache:
         xs, ys, activations = compute_sequences_from_cache(model, cached, Ng_eval)
         scorer = _build_scorer(options, args.res)
-        scores_60, _ = scorer.predictive_grid_scores(xs, ys, activations, lags)
+        scores_60, _ = scorer.predictive_grid_scores(
+            xs,
+            ys,
+            activations,
+            lags,
+            shift_mode=args.shift_mode,
+            periodic=bool(getattr(options, "periodic", False)),
+            space_projection=args.space_projection,
+        )
     else:
         with torch.no_grad():
             scores_60, _, xs, ys, _, _ = predictive_gridness_analysis(
@@ -266,10 +275,12 @@ def analyze_checkpoint(ckpt_path: str,
                 n_batches=args.n_batches,
                 Ng=Ng_eval,
                 idxs=idxs,
+                shift_mode=args.shift_mode,
+                space_projection=args.space_projection,
             )
 
     cm_step = cm_per_step_from_positions(xs, ys)
-    lag_cm = np.array(lags, dtype=float) * cm_step
+    lag_cm = shift_values_to_cm(lags, args.shift_mode, cm_step)
 
     zero_idx = np.where(np.array(lags) == 0)[0]
     zero_scores = scores_60[zero_idx[0]] if zero_idx.size else np.full(Ng_eval, np.nan)
@@ -311,6 +322,9 @@ def analyze_checkpoint(ckpt_path: str,
         "mean_best_pos_shift_cm": _format_float(np.nanmean(best_pos_cm)),
         "mean_best_neg_shift_cm": _format_float(np.nanmean(best_neg_cm)),
         "cm_per_step": _format_float(cm_step),
+        "shift_mode": args.shift_mode,
+        "space_projection": args.space_projection,
+        "shift_values": np.asarray(lags, dtype=float).tolist(),
         "gridness_threshold": float(args.gridness_threshold),
         "min_shift_cm": float(args.min_shift_cm),
     }
@@ -387,6 +401,7 @@ def plot_training_overlay(metrics: List[Dict[str, float]],
         ax1.plot(np.arange(len(loss_means)), loss_means, color="#1f77b4", label="Loss")
         lines += ax1.get_lines()[-1:]
         labels += ["Loss"]
+        ax1.set_ylim(bottom=0)
     if err is not None:
         err_means, _ = _epoch_means(err, max_epoch)
         ax1.plot(np.arange(len(err_means)), err_means, color="#ff7f0e", linestyle="--", label="Decoding error")
@@ -463,7 +478,11 @@ def main() -> None:
 
     parser.add_argument("--gridness_threshold", default=0.3, type=float)
     parser.add_argument("--min_shift_cm", default=5.0, type=float)
+    parser.add_argument("--shift_mode", default="time", choices=["time", "space"])
+    parser.add_argument("--space_projection", default="path", choices=["path", "heading"])
     parser.add_argument("--max_lag", default=10, type=int)
+    parser.add_argument("--max_shift_cm", default=10.0, type=float)
+    parser.add_argument("--shift_step_cm", default=1.0, type=float)
     parser.add_argument("--lag_step", default=1, type=int)
     parser.add_argument("--device", default=None)
     parser.add_argument("--rng_seed", default=0, type=int)
@@ -474,9 +493,13 @@ def main() -> None:
     if not checkpoints:
         raise FileNotFoundError("No checkpoints found.")
 
-    lags = list(range(-args.max_lag, args.max_lag + 1, args.lag_step))
-    if 0 not in lags:
-        lags = sorted(lags + [0])
+    lags = build_shift_values(
+        args.shift_mode,
+        max_lag=args.max_lag,
+        lag_step=args.lag_step,
+        max_shift_cm=args.max_shift_cm,
+        shift_step_cm=args.shift_step_cm,
+    )
 
     out_dir = args.output_dir
     if not out_dir:

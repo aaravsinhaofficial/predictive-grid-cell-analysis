@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Sequence, Tuple
+import zlib
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -199,6 +200,18 @@ def run_ablation_for_checkpoint(
     grid_data = load_gridness_data(ckpt_path)
     class_indices = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
     score_vectors = class_score_vectors(grid_data, args.min_shift_cm)
+    scores_mat = np.asarray(grid_data["scores_60"], dtype=float)
+    data_units = int(scores_mat.shape[1])
+    if int(args.Ng_use) > 0:
+        Ng_eval = min(int(args.Ng_use), data_units, int(Ng))
+    else:
+        Ng_eval = min(data_units, int(Ng))
+    analysis_unit_pool = np.arange(Ng_eval, dtype=int)
+    for cls_name, idxs in class_indices.items():
+        idxs_arr = np.asarray(idxs, dtype=int)
+        class_indices[cls_name] = idxs_arr[(idxs_arr >= 0) & (idxs_arr < Ng_eval)]
+    for cls_name, vec in score_vectors.items():
+        score_vectors[cls_name] = np.asarray(vec, dtype=float)[:Ng_eval]
 
     place_cells = PlaceCells(options)
     traj_gen = TrajectoryGenerator(options, place_cells)
@@ -212,6 +225,12 @@ def run_ablation_for_checkpoint(
 
     baseline_raw = mean_decoding_error_cm(base_model, eval_batches)
     baseline_err = float(baseline_raw) if math.isfinite(baseline_raw) else None
+    seed_token = seed_label_from_path(ckpt_path)
+    if str(seed_token).isdigit():
+        rng_seed = int(seed_token)
+    else:
+        rng_seed = int(zlib.crc32(ckpt_path.encode("utf-8")) & 0xFFFFFFFF)
+    rng = np.random.default_rng(int(args.random_seed) + rng_seed)
 
     top_units: Dict[str, Dict[float, np.ndarray]] = {k: {} for k in score_vectors.keys()}
     for cls_name, scores in score_vectors.items():
@@ -219,11 +238,15 @@ def run_ablation_for_checkpoint(
             top_units[cls_name][pct] = select_top_percentile(class_indices[cls_name], scores, pct)
 
     errors: Dict[str, List[float]] = {name: [] for name in combos}
+    random_errors: Dict[str, List[float]] = {name: [] for name in combos}
+    random_sems: Dict[str, List[float]] = {name: [] for name in combos}
     removed_counts: Dict[str, List[int]] = {name: [] for name in combos}
     for pct in percentiles:
         for combo_name, combo_classes in combos.items():
             if not combo_classes:
                 errors[combo_name].append(baseline_err)
+                random_errors[combo_name].append(baseline_err)
+                random_sems[combo_name].append(0.0)
                 removed_counts[combo_name].append(0)
                 continue
 
@@ -233,6 +256,8 @@ def run_ablation_for_checkpoint(
 
             if units.size == 0:
                 errors[combo_name].append(baseline_err)
+                random_errors[combo_name].append(baseline_err)
+                random_sems[combo_name].append(0.0)
                 continue
 
             ablated_model = copy.deepcopy(base_model)
@@ -240,7 +265,28 @@ def run_ablation_for_checkpoint(
             err_val = mean_decoding_error_cm(ablated_model, eval_batches)
             errors[combo_name].append(float(err_val) if math.isfinite(err_val) else None)
 
+            rand_vals: List[float] = []
+            for _ in range(max(0, int(args.random_trials))):
+                rand_units = rng.choice(analysis_unit_pool, size=int(units.size), replace=False)
+                rand_model = copy.deepcopy(base_model)
+                zero_unit_weights_in_place(rand_model, rand_units.tolist())
+                rand_err = mean_decoding_error_cm(rand_model, eval_batches)
+                if math.isfinite(rand_err):
+                    rand_vals.append(float(rand_err))
+            if rand_vals:
+                rand_arr = np.asarray(rand_vals, dtype=float)
+                random_errors[combo_name].append(float(np.nanmean(rand_arr)))
+                if rand_arr.size > 1:
+                    random_sems[combo_name].append(float(np.nanstd(rand_arr, ddof=1) / np.sqrt(rand_arr.size)))
+                else:
+                    random_sems[combo_name].append(0.0)
+            else:
+                random_errors[combo_name].append(None)
+                random_sems[combo_name].append(None)
+
     count_errors: Dict[str, List[float]] = {"predictive": [], "retrospective": []}
+    count_random_errors: Dict[str, List[float]] = {"predictive": [], "retrospective": []}
+    count_random_sems: Dict[str, List[float]] = {"predictive": [], "retrospective": []}
     count_removed: Dict[str, List[int]] = {"predictive": [], "retrospective": []}
     for cnt in count_targets:
         count_int = int(cnt)
@@ -249,23 +295,50 @@ def run_ablation_for_checkpoint(
             count_removed[cls_name].append(int(selected.size))
             if selected.size < count_int or selected.size == 0:
                 count_errors[cls_name].append(math.nan)
+                count_random_errors[cls_name].append(math.nan)
+                count_random_sems[cls_name].append(0.0)
                 continue
             ablated_model = copy.deepcopy(base_model)
             zero_unit_weights_in_place(ablated_model, selected.tolist())
             err_val = mean_decoding_error_cm(ablated_model, eval_batches)
             count_errors[cls_name].append(float(err_val) if math.isfinite(err_val) else None)
+            rand_vals: List[float] = []
+            for _ in range(max(0, int(args.random_trials))):
+                rand_units = rng.choice(analysis_unit_pool, size=int(selected.size), replace=False)
+                rand_model = copy.deepcopy(base_model)
+                zero_unit_weights_in_place(rand_model, rand_units.tolist())
+                rand_err = mean_decoding_error_cm(rand_model, eval_batches)
+                if math.isfinite(rand_err):
+                    rand_vals.append(float(rand_err))
+            if rand_vals:
+                rand_arr = np.asarray(rand_vals, dtype=float)
+                count_random_errors[cls_name].append(float(np.nanmean(rand_arr)))
+                if rand_arr.size > 1:
+                    count_random_sems[cls_name].append(float(np.nanstd(rand_arr, ddof=1) / np.sqrt(rand_arr.size)))
+                else:
+                    count_random_sems[cls_name].append(0.0)
+            else:
+                count_random_errors[cls_name].append(math.nan)
+                count_random_sems[cls_name].append(0.0)
 
     return {
         "checkpoint": ckpt_path,
         "seed": seed_label_from_path(ckpt_path),
+        "Ng_total": int(Ng),
+        "Ng_eval": int(Ng_eval),
         "baseline_error_cm": baseline_err,
         "class_counts": {k: int(v.size) for k, v in class_indices.items()},
         "errors": errors,
+        "random_errors": random_errors,
+        "random_sems": random_sems,
         "removed_counts": removed_counts,
         "percentiles": list(percentiles),
         "count_targets": list(count_targets),
         "count_errors": count_errors,
+        "count_random_errors": count_random_errors,
+        "count_random_sems": count_random_sems,
         "count_removed": count_removed,
+        "random_trials": int(args.random_trials),
     }
 
 
@@ -308,6 +381,54 @@ def plot_single_class_lines(results: List[Dict], percentiles: Sequence[float], s
     plt.close(fig)
 
 
+def plot_single_class_vs_random_lines(results: List[Dict], percentiles: Sequence[float], save_path: str) -> None:
+    labels = ["predictive", "retrospective", "normal"]
+    colors = {
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
+    }
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    baseline_vals = [r.get("baseline_error_cm") for r in results if r.get("baseline_error_cm") is not None]
+    baseline_mean = float(np.nanmean(baseline_vals)) if baseline_vals else math.nan
+    if math.isfinite(baseline_mean):
+        ax.axhline(baseline_mean, color="#bbbbbb", ls="--", lw=1.2, label="Baseline mean")
+
+    for label in labels:
+        class_rows = []
+        random_rows = []
+        for r in results:
+            vals = r.get("errors", {}).get(label, [])
+            rand_vals = r.get("random_errors", {}).get(label, [])
+            if len(vals) == len(percentiles):
+                class_rows.append(np.array(vals, dtype=float))
+            if len(rand_vals) == len(percentiles):
+                random_rows.append(np.array(rand_vals, dtype=float))
+        if class_rows:
+            class_mat = np.vstack(class_rows)
+            mean = np.nanmean(class_mat, axis=0)
+            sem = np.nanstd(class_mat, axis=0, ddof=1) / np.sqrt(class_mat.shape[0]) if class_mat.shape[0] > 1 else np.zeros_like(mean)
+            ax.plot(percentiles, mean, marker="o", color=colors[label], lw=2.0, label=f"{label.title()} class")
+            ax.fill_between(percentiles, mean - sem, mean + sem, color=colors[label], alpha=0.18)
+        if random_rows:
+            random_mat = np.vstack(random_rows)
+            rand_mean = np.nanmean(random_mat, axis=0)
+            rand_sem = np.nanstd(random_mat, axis=0, ddof=1) / np.sqrt(random_mat.shape[0]) if random_mat.shape[0] > 1 else np.zeros_like(rand_mean)
+            ax.plot(percentiles, rand_mean, marker="x", color=colors[label], ls="--", lw=1.4, alpha=0.9, label=f"{label.title()} matched-random")
+            ax.fill_between(percentiles, rand_mean - rand_sem, rand_mean + rand_sem, color=colors[label], alpha=0.08)
+
+    ax.set_xlabel("Top percentile within class removed")
+    ax.set_ylabel("Mean decoding error (cm)")
+    ax.set_title("Class ablations vs matched random controls")
+    ax.grid(alpha=0.3)
+    ax.legend(frameon=False, fontsize=8, ncol=2)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+
+
 def plot_combo_heatmap(results: List[Dict], percentiles: Sequence[float], save_path: str) -> None:
     combo_labels = [c for c in COMBOS.keys() if c != "baseline"]
     mat = np.full((len(combo_labels), len(percentiles)), np.nan, dtype=float)
@@ -343,6 +464,42 @@ def plot_combo_heatmap(results: List[Dict], percentiles: Sequence[float], save_p
     plt.close(fig)
 
 
+def plot_combo_minus_random_heatmap(results: List[Dict], percentiles: Sequence[float], save_path: str) -> None:
+    combo_labels = [c for c in COMBOS.keys() if c != "baseline"]
+    mat = np.full((len(combo_labels), len(percentiles)), np.nan, dtype=float)
+    for i, combo in enumerate(combo_labels):
+        rows = []
+        for r in results:
+            vals = np.array(r.get("errors", {}).get(combo, []), dtype=float)
+            rand_vals = np.array(r.get("random_errors", {}).get(combo, []), dtype=float)
+            if vals.shape[0] == len(percentiles) and rand_vals.shape[0] == len(percentiles):
+                rows.append(vals - rand_vals)
+        if rows:
+            mat[i] = np.nanmean(np.vstack(rows), axis=0)
+
+    vmax = float(np.nanmax(np.abs(mat[np.isfinite(mat)]))) if np.isfinite(mat).any() else 1.0
+    vmax = max(vmax, 1e-6)
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+    im = ax.imshow(mat, aspect="auto", cmap="coolwarm", vmin=-vmax, vmax=vmax)
+    ax.set_xticks(np.arange(len(percentiles)))
+    ax.set_xticklabels([str(p) for p in percentiles])
+    ax.set_yticks(np.arange(len(combo_labels)))
+    ax.set_yticklabels(combo_labels)
+    ax.set_xlabel("Top percentile removed")
+    ax.set_ylabel("Ablated class combination")
+    ax.set_title("Targeted ablation minus matched random (cm)")
+    for i in range(mat.shape[0]):
+        for j in range(mat.shape[1]):
+            val = mat[i, j]
+            if math.isfinite(val):
+                ax.text(j, i, f"{val:+.2f}", ha="center", va="center", color="black", fontsize=8)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02, label="Δ error (cm)")
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=200)
+    plt.close(fig)
+
+
 def plot_fixed_count_lines(results: List[Dict], counts: Sequence[int], save_path: str) -> None:
     if not counts:
         return
@@ -365,6 +522,17 @@ def plot_fixed_count_lines(results: List[Dict], counts: Sequence[int], save_path
         std = np.nanstd(mat, axis=0)
         ax.plot(counts, mean, marker="o", color=colors[label], label=f"{label.title()} ablation")
         ax.fill_between(counts, mean - std, mean + std, color=colors[label], alpha=0.2)
+        rand_rows = []
+        for r in results:
+            vals = r.get("count_random_errors", {}).get(label, [])
+            if len(vals) == len(counts):
+                rand_rows.append(np.array(vals, dtype=float))
+        if rand_rows:
+            rand_mat = np.vstack(rand_rows)
+            rand_mean = np.nanmean(rand_mat, axis=0)
+            rand_std = np.nanstd(rand_mat, axis=0)
+            ax.plot(counts, rand_mean, marker="x", ls="--", color=colors[label], alpha=0.8, label=f"{label.title()} random")
+            ax.fill_between(counts, rand_mean - rand_std, rand_mean + rand_std, color=colors[label], alpha=0.08)
     ax.set_xlabel("Units removed from class")
     ax.set_ylabel("Mean decoding error (cm)")
     ax.set_title("Fixed-count ablations")
@@ -517,6 +685,93 @@ def plot_full_ablation_summary_percentiles(
     plt.close(fig)
 
 
+def plot_targeted_vs_random_percentiles(
+    results: List[Dict],
+    percentiles: Sequence[float],
+    targets: Sequence[float],
+    save_path: str,
+) -> None:
+    """Compare targeted class ablations to matched-random controls at selected percentiles."""
+    idxs = _percentile_indices(percentiles, targets)
+    if len(idxs) != len(targets):
+        missing = [str(t) for t in targets if t not in idxs]
+        print(f"[predictive_retrospective_ablation] Skipping targeted-vs-random summary; missing percentiles: {', '.join(missing)}")
+        return
+
+    classes = ["predictive", "retrospective", "normal"]
+    colors = {
+        "predictive": "#2086cf",
+        "retrospective": "#d72020",
+        "normal": "#0A0A0A",
+    }
+
+    fig, axes = plt.subplots(1, len(targets), figsize=(5.0 * len(targets), 4.2), sharey=True)
+    if len(targets) == 1:
+        axes = [axes]
+
+    for ax, target in zip(axes, targets):
+        idx = idxs[target]
+        x = np.arange(len(classes))
+        width = 0.36
+        targeted_means = []
+        targeted_sems = []
+        random_means = []
+        random_sems = []
+        for cls_name in classes:
+            targeted_vals = []
+            random_vals = []
+            for r in results:
+                cvals = r.get("errors", {}).get(cls_name, [])
+                rvals = r.get("random_errors", {}).get(cls_name, [])
+                if len(cvals) > idx and cvals[idx] is not None and math.isfinite(cvals[idx]):
+                    targeted_vals.append(float(cvals[idx]))
+                if len(rvals) > idx and rvals[idx] is not None and math.isfinite(rvals[idx]):
+                    random_vals.append(float(rvals[idx]))
+            tarr = np.asarray(targeted_vals, dtype=float)
+            rarr = np.asarray(random_vals, dtype=float)
+            targeted_means.append(float(np.nanmean(tarr)) if tarr.size else math.nan)
+            random_means.append(float(np.nanmean(rarr)) if rarr.size else math.nan)
+            targeted_sems.append(float(np.nanstd(tarr, ddof=1) / np.sqrt(tarr.size)) if tarr.size > 1 else 0.0)
+            random_sems.append(float(np.nanstd(rarr, ddof=1) / np.sqrt(rarr.size)) if rarr.size > 1 else 0.0)
+
+        ax.bar(
+            x - width / 2,
+            targeted_means,
+            width,
+            yerr=targeted_sems,
+            color=[colors[c] for c in classes],
+            alpha=0.85,
+            edgecolor="black",
+            linewidth=0.6,
+            capsize=4,
+            label="Targeted",
+        )
+        ax.bar(
+            x + width / 2,
+            random_means,
+            width,
+            yerr=random_sems,
+            color=[colors[c] for c in classes],
+            alpha=0.35,
+            edgecolor="black",
+            linewidth=0.6,
+            capsize=4,
+            label="Matched random",
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels([c.title() for c in classes], rotation=20)
+        ax.set_title(f"{target:.0f}% ablation")
+        ax.grid(axis="y", alpha=0.3)
+
+    axes[0].set_ylabel("Decoding error (cm)")
+    axes[0].legend(frameon=False, fontsize=9)
+    fig.suptitle("Targeted vs matched-random class ablations", y=1.02)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_seed_ablation_summaries(
     results: List[Dict],
     percentiles: Sequence[float],
@@ -595,6 +850,12 @@ def main():
                         help="Absolute number of predictive/retrospective units to ablate (per class).")
     parser.add_argument("--ablation_batches", default=8, type=int,
                         help="Cached eval batches per checkpoint.")
+    parser.add_argument("--Ng_use", default=512, type=int,
+                        help="Restrict ablation analysis to first Ng_use units (<=0 uses all cached units).")
+    parser.add_argument("--random_trials", default=3, type=int,
+                        help="Matched-random ablation repeats per condition.")
+    parser.add_argument("--random_seed", default=0, type=int,
+                        help="Base RNG seed for matched-random ablations.")
     parser.add_argument("--batch_size", default=100, type=int)
     parser.add_argument("--sequence_length", default=20, type=int)
     parser.add_argument("--place_cell_rf", default=0.12, type=float)
@@ -677,13 +938,21 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     save_results_json(results, percentiles, count_targets, os.path.join(args.output_dir, "results.json"))
     plot_single_class_lines(results, percentiles, os.path.join(args.output_dir, "single_class_ablation.png"))
+    plot_single_class_vs_random_lines(results, percentiles, os.path.join(args.output_dir, "single_class_ablation_vs_random.png"))
     plot_combo_heatmap(results, percentiles, os.path.join(args.output_dir, "combo_heatmap.png"))
+    plot_combo_minus_random_heatmap(results, percentiles, os.path.join(args.output_dir, "combo_minus_random_heatmap.png"))
     plot_full_ablation_summary(results, percentiles, os.path.join(args.output_dir, "path_integration_ablation_summary.png"))
     plot_full_ablation_summary_percentiles(
         results,
         percentiles,
         [25.0, 75.0, 100.0],
         os.path.join(args.output_dir, "path_integration_ablation_summary_p25_p75_p100.png"),
+    )
+    plot_targeted_vs_random_percentiles(
+        results,
+        percentiles,
+        [25.0, 75.0, 100.0],
+        os.path.join(args.output_dir, "path_integration_ablation_targeted_vs_random_p25_p75_p100.png"),
     )
     plot_seed_ablation_summaries(
         results,

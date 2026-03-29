@@ -298,8 +298,8 @@ def project_states_to_torus(states: np.ndarray, basis: TorusBasis, torus_radii: 
     major = (r1 * scale_r1) + R * 0.0
     minor = (r2 * scale_r2)
 
-    x = (R + minor * np.cos(theta2)) * np.cos(theta1)
-    y = (R + minor * np.cos(theta2)) * np.sin(theta1)
+    x = (R + minor * np.cos(theta2)) * np.cos(theta1) 
+    y = (R + minor * np.cos(theta2)) * np.sin(theta1) 
     z = minor * np.sin(theta2)
     coords3d = np.stack([x, y, z], axis=1)
     return coords3d
@@ -608,6 +608,9 @@ def choose_sample_indices(total_points: int, overlay_steps: int, total_B: int, r
         sample_idx = np.unique(np.concatenate([overlay_idx, extra]))
     else:
         sample_idx = overlay_idx
+
+    if sample_idx.size > max_points:
+        sample_idx = rng.choice(sample_idx, size=max_points, replace=False)
     return sample_idx, overlay_idx
 
 

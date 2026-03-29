@@ -24,6 +24,12 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple, Optional
 
+# Keep caches writable inside the repo before importing matplotlib/UMAP stack.
+os.environ.setdefault("NUMBA_CACHE_DIR", str(Path(".numba_cache").resolve()))
+os.environ.setdefault("MPLCONFIGDIR", str(Path(".mplconfig").resolve()))
+Path(os.environ["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
+Path(os.environ["MPLCONFIGDIR"]).mkdir(parents=True, exist_ok=True)
+
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -717,9 +723,45 @@ def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
     return {k: data[k] for k in data.files}
 
 
+def load_saved_class_ids(class_dir: str, suffix: str) -> Dict[str, np.ndarray]:
+    """Load predictive/retrospective/grid IDs from a saved analysis-output folder."""
+    class_path = Path(class_dir)
+
+    def _load(name: str) -> np.ndarray:
+        path = class_path / f"{name}_{suffix}.npy"
+        if not path.exists():
+            raise FileNotFoundError(f"Missing saved class file: {path}")
+        arr = np.load(path)
+        return np.asarray(arr, dtype=int).reshape(-1)
+
+    predictive = _load("predictive_ids")
+    retrospective = _load("retrospective_ids")
+    grid = _load("grid_ids")
+
+    dead_path = class_path / f"dead_unit_ids_{suffix}.npy"
+    if dead_path.exists():
+        dead_mask = np.load(dead_path).astype(bool).reshape(-1)
+        if dead_mask.size:
+            alive = np.where(~dead_mask)[0]
+            predictive = np.intersect1d(predictive, alive, assume_unique=False)
+            retrospective = np.intersect1d(retrospective, alive, assume_unique=False)
+            grid = np.intersect1d(grid, alive, assume_unique=False)
+
+    normal = np.setdiff1d(grid, np.union1d(predictive, retrospective), assume_unique=False)
+    return {
+        "predictive": predictive,
+        "retrospective": retrospective,
+        "grid": grid,
+        "normal": normal,
+    }
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint_path", required=True, help="Path to a trained RNN checkpoint (.pth).")
+    parser.add_argument("--class_dir", default=None, help="Optional directory containing saved predictive_ids_<suffix>.npy etc.")
+    parser.add_argument("--class_suffix", default="random_walk", help="Suffix used for saved class files in --class_dir.")
+    parser.add_argument("--output_dir", default=None, help="Optional output directory override.")
     parser.add_argument("--batch_size", type=int, default=80)
     parser.add_argument("--sequence_length", type=int, default=20)
     parser.add_argument("--place_cell_rf", type=float, default=0.12)
@@ -763,23 +805,50 @@ def main():
     options = build_options(args, (Ng, Np, velocity_dim), device, args.checkpoint_path)
     place_cells = PlaceCells(options)
     traj_gen = TrajectoryGenerator(options, place_cells)
-    out_dir = str(analysis_dir_for_checkpoint(Path(args.checkpoint_path)) / "torus")
+    if args.output_dir:
+        out_dir = str(Path(args.output_dir))
+    else:
+        out_dir = str(analysis_dir_for_checkpoint(Path(args.checkpoint_path)) / "torus")
     os.makedirs(out_dir, exist_ok=True)
 
-    grid_data = load_gridness_data(args.checkpoint_path)
-    # Grid-like units for basis (best gridness >= threshold)
-    best_idx = np.nanargmax(grid_data["scores_60"], axis=0)
-    best_vals = grid_data["scores_60"][best_idx, np.arange(grid_data["scores_60"].shape[1])]
-    grid_units_global = np.where(best_vals >= args.gridness_threshold)[0]
-    if grid_units_global.size == 0:
-        raise RuntimeError("No units pass the gridness threshold; lower --gridness_threshold.")
-    basis_units_global = grid_units_global[: args.Ng_use]
+    if args.class_dir:
+        classes = load_saved_class_ids(args.class_dir, args.class_suffix)
+        grid_units_global = np.asarray(classes["grid"], dtype=int)
+        grid_units_global = grid_units_global[(grid_units_global >= 0) & (grid_units_global < Ng)]
+        if grid_units_global.size == 0:
+            raise RuntimeError("No saved grid units found in --class_dir.")
+        basis_units_global = np.unique(grid_units_global)[: args.Ng_use]
+        predictive_units = np.asarray(classes["predictive"], dtype=int)
+        predictive_units = predictive_units[(predictive_units >= 0) & (predictive_units < Ng)].tolist()
+        retrospective_units = np.asarray(classes["retrospective"], dtype=int)
+        retrospective_units = retrospective_units[(retrospective_units >= 0) & (retrospective_units < Ng)].tolist()
+        normal_units = np.asarray(classes.get("normal", np.array([], dtype=int)), dtype=int)
+        normal_units = normal_units[(normal_units >= 0) & (normal_units < Ng)].tolist()
+        class_source = {
+            "mode": "saved_ids",
+            "class_dir": str(Path(args.class_dir).resolve()),
+            "class_suffix": args.class_suffix,
+        }
+    else:
+        grid_data = load_gridness_data(args.checkpoint_path)
+        # Grid-like units for basis (best gridness >= threshold)
+        best_idx = np.nanargmax(grid_data["scores_60"], axis=0)
+        best_vals = grid_data["scores_60"][best_idx, np.arange(grid_data["scores_60"].shape[1])]
+        grid_units_global = np.where(best_vals >= args.gridness_threshold)[0]
+        if grid_units_global.size == 0:
+            raise RuntimeError("No units pass the gridness threshold; lower --gridness_threshold.")
+        basis_units_global = grid_units_global[: args.Ng_use]
 
-    # Predictive / retrospective unit lists for ablation
-    classes = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
-    predictive_units = classes["predictive"].tolist()
-    retrospective_units = classes["retrospective"].tolist()
-    normal_units = classes.get("normal", np.array([], dtype=int)).tolist()
+        # Predictive / retrospective unit lists for ablation
+        classes = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
+        predictive_units = classes["predictive"].tolist()
+        retrospective_units = classes["retrospective"].tolist()
+        normal_units = classes.get("normal", np.array([], dtype=int)).tolist()
+        class_source = {
+            "mode": "gridness_data",
+            "gridness_threshold": float(args.gridness_threshold),
+            "min_shift_cm": float(args.min_shift_cm),
+        }
 
     # Rate maps (baseline) for the basis units
     model = RNN(options, place_cells).to(device)
@@ -804,6 +873,12 @@ def main():
 
     toroidal_detection = identify_toroidal_cells(rate_maps, idxs, options.box_width, out_dir, embed_mode=args.toroid_embed)
     toroidal_units = toroidal_detection.units.tolist()
+    predictive_grid_units = np.intersect1d(np.asarray(predictive_units, dtype=int), np.asarray(grid_units_global, dtype=int)).tolist()
+    retrospective_grid_units = np.intersect1d(np.asarray(retrospective_units, dtype=int), np.asarray(grid_units_global, dtype=int)).tolist()
+    predictive_basis_units = np.intersect1d(np.asarray(predictive_units, dtype=int), np.asarray(basis_units_global, dtype=int)).tolist()
+    retrospective_basis_units = np.intersect1d(np.asarray(retrospective_units, dtype=int), np.asarray(basis_units_global, dtype=int)).tolist()
+    predictive_toroidal_units = np.intersect1d(np.asarray(predictive_units, dtype=int), np.asarray(toroidal_units, dtype=int)).tolist()
+    retrospective_toroidal_units = np.intersect1d(np.asarray(retrospective_units, dtype=int), np.asarray(toroidal_units, dtype=int)).tolist()
 
     # Cache trajectories for fair comparisons
     cached_batches = collect_eval_batches(traj_gen, args.n_batches)
@@ -827,6 +902,18 @@ def main():
     )
     projections["Retrospective ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "retrospective", retrospective_units, torus_radii
+    )
+    projections["Predictive∩grid ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "predictive_grid", predictive_grid_units, torus_radii
+    )
+    projections["Retrospective∩grid ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "retrospective_grid", retrospective_grid_units, torus_radii
+    )
+    projections["Predictive∩toroidal ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "predictive_toroidal", predictive_toroidal_units, torus_radii
+    )
+    projections["Retrospective∩toroidal ablated"] = run_condition(
+        state, basis, options, place_cells, traj_gen, cached_batches, device, "retrospective_toroidal", retrospective_toroidal_units, torus_radii
     )
     projections["Normal grid ablated"] = run_condition(
         state, basis, options, place_cells, traj_gen, cached_batches, device, "normal", normal_units, torus_radii
@@ -875,6 +962,19 @@ def main():
         "predictive_units": len(predictive_units),
         "retrospective_units": len(retrospective_units),
         "normal_units": len(normal_units),
+        "predictive_grid_units": len(predictive_grid_units),
+        "retrospective_grid_units": len(retrospective_grid_units),
+        "predictive_basis_units": len(predictive_basis_units),
+        "retrospective_basis_units": len(retrospective_basis_units),
+        "predictive_toroidal_units": len(predictive_toroidal_units),
+        "retrospective_toroidal_units": len(retrospective_toroidal_units),
+        "predictive_grid_unit_ids": [int(x) for x in predictive_grid_units],
+        "retrospective_grid_unit_ids": [int(x) for x in retrospective_grid_units],
+        "predictive_basis_unit_ids": [int(x) for x in predictive_basis_units],
+        "retrospective_basis_unit_ids": [int(x) for x in retrospective_basis_units],
+        "predictive_toroidal_unit_ids": [int(x) for x in predictive_toroidal_units],
+        "retrospective_toroidal_unit_ids": [int(x) for x in retrospective_toroidal_units],
+        "class_source": class_source,
         "toroidal_units": int(len(toroidal_units)),
         "band_units": int(len(band_units)),
         "band_cutoff": float(band_cutoff) if band_cutoff == band_cutoff else float("nan"),

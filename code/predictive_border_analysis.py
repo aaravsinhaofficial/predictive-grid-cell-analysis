@@ -29,6 +29,7 @@ from visualize import collect_sequences
 from multi_seed_predictive_analysis import build_options, infer_dims_from_state, expand_checkpoints
 from predictive_retrospective_ablation import classify_from_scores
 from replicate_predictive_grid_figure import cm_per_step_from_positions
+from shift_utils import build_shift_values, shift_config_label, shift_values_to_cm
 
 
 def extract_state(raw):
@@ -55,19 +56,6 @@ def safe_nanargmax(arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return idxs, vals
 
 
-def shifted_views(xs: np.ndarray, ys: np.ndarray, activations: np.ndarray, lag: int):
-    if lag >= 0:
-        xs_l = xs[lag:]
-        ys_l = ys[lag:]
-        a_l = activations[: xs.shape[0] - lag]
-    else:
-        k = -lag
-        xs_l = xs[: xs.shape[0] - k]
-        ys_l = ys[: ys.shape[0] - k]
-        a_l = activations[k:]
-    return xs_l, ys_l, a_l
-
-
 def compute_border_scores_by_lag(
     xs: np.ndarray,
     ys: np.ndarray,
@@ -76,19 +64,28 @@ def compute_border_scores_by_lag(
     res: int,
     box_width: float,
     box_height: float,
+    shift_mode: str,
+    periodic: bool,
+    space_projection: str,
 ) -> np.ndarray:
     coord_range = ((-box_width / 2, box_width / 2), (-box_height / 2, box_height / 2))
     scorer = GridScorer(res, coord_range, [(0.2, 0.4)])
     _, _, Ng = activations.shape
     out = np.full((len(lags), Ng), np.nan, dtype=np.float32)
     for li, lag in enumerate(lags):
-        xs_l, ys_l, a_l = shifted_views(xs, ys, activations, lag)
-        if xs_l.size == 0:
+        flat_x, flat_y, flat_a = scorer.aligned_samples(
+            xs,
+            ys,
+            activations,
+            lag,
+            shift_mode=shift_mode,
+            periodic=periodic,
+            space_projection=space_projection,
+        )
+        if flat_x.size == 0:
             continue
-        flat_x = xs_l.reshape(-1)
-        flat_y = ys_l.reshape(-1)
         for u in range(Ng):
-            rm = scorer.calculate_ratemap(flat_x, flat_y, a_l[:, :, u].reshape(-1), statistic="mean")
+            rm = scorer.calculate_ratemap(flat_x, flat_y, flat_a[:, u], statistic="mean")
             bscore, _, _ = border_score(rm, res, box_width)
             out[li, u] = bscore
     return out
@@ -163,7 +160,12 @@ def analyse_checkpoint(args, ckpt_path: str):
     traj_gen = TrajectoryGenerator(options, place_cells)
 
     Ng_eval = min(args.Ng_use, Ng)
-    lags = list(range(-args.max_lag, args.max_lag + 1))
+    lags = build_shift_values(
+        args.shift_mode,
+        max_lag=args.max_lag,
+        max_shift_cm=args.max_shift_cm,
+        shift_step_cm=args.shift_step_cm,
+    )
     xs, ys, activations = collect_sequences(
         model,
         traj_gen,
@@ -181,10 +183,15 @@ def analyse_checkpoint(args, ckpt_path: str):
         args.res,
         options.box_width,
         options.box_height,
+        args.shift_mode,
+        bool(getattr(options, "periodic", False)),
+        args.space_projection,
     )
 
     cm_step = cm_per_step_from_positions(xs, ys)
-    lag_cm = np.array(lags, dtype=float) * cm_step
+    lag_cm = shift_values_to_cm(lags, args.shift_mode, cm_step)
+    print(f"[predictive_border_analysis] shift_mode={shift_config_label(args.shift_mode, args.space_projection)}")
+    print(f"[predictive_border_analysis] cm_per_step={cm_step:.3f}")
     zero_idx = lags.index(0)
     zero_scores = border_lag[zero_idx]
     best_idx, best_scores = safe_nanargmax(border_lag)
@@ -229,6 +236,9 @@ def analyse_checkpoint(args, ckpt_path: str):
         "checkpoint": ckpt_path,
         "num_units_scored": int(Ng_eval),
         "lags": lags,
+        "shift_mode": args.shift_mode,
+        "space_projection": args.space_projection,
+        "shift_values": np.asarray(lags, dtype=float).tolist(),
         "lag_cm": lag_cm.tolist(),
         "cm_per_step": float(cm_step),
         "border_threshold": float(args.border_threshold),
@@ -246,6 +256,9 @@ def analyse_checkpoint(args, ckpt_path: str):
         zero_scores=zero_scores,
         best_scores=best_scores,
         best_shift_cm=best_shift_cm,
+        shift_mode=np.array(args.shift_mode),
+        space_projection=np.array(args.space_projection),
+        shift_values=np.asarray(lags, dtype=float),
         lag_cm=lag_cm,
         predictive=predictive,
         retrospective=retrospective,
@@ -273,7 +286,11 @@ def parse_args():
     parser.add_argument("--res", default=20, type=int)
     parser.add_argument("--n_batches", default=10, type=int)
     parser.add_argument("--Ng_use", default=512, type=int)
+    parser.add_argument("--shift_mode", default="time", choices=["time", "space"])
+    parser.add_argument("--space_projection", default="path", choices=["path", "heading"])
     parser.add_argument("--max_lag", default=20, type=int)
+    parser.add_argument("--max_shift_cm", default=20.0, type=float)
+    parser.add_argument("--shift_step_cm", default=1.0, type=float)
     parser.add_argument("--min_shift_cm", default=5.0, type=float)
     parser.add_argument("--gridness_threshold", default=0.2, type=float)
     parser.add_argument("--border_threshold", default=0.5, type=float)

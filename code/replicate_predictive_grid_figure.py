@@ -17,6 +17,7 @@ import torch
 from model import RNN
 from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
+from shift_utils import build_shift_values, shift_values_to_cm, shift_config_label
 from visualize import predictive_gridness_analysis
 
 
@@ -266,7 +267,16 @@ def main() -> None:
     parser.add_argument("--device", default=None, help="Force cpu/cuda device; defaults to available GPU.")
 
     parser.add_argument("--res", default=20, type=int, help="Rate-map resolution used by the scorer.")
-    parser.add_argument("--max_lag", default=20, type=int, help="Evaluate lags from -max_lag .. +max_lag (time steps).")
+    parser.add_argument("--shift_mode", default="time", choices=["time", "space"],
+                        help="Align activity to future/past positions by time steps or direct spatial displacement.")
+    parser.add_argument("--space_projection", default="path", choices=["path", "heading"],
+                        help="When --shift_mode space, use arc-length along the trajectory or heading-based projection.")
+    parser.add_argument("--max_lag", default=20, type=int,
+                        help="When --shift_mode time, evaluate lags from -max_lag .. +max_lag (time steps).")
+    parser.add_argument("--max_shift_cm", default=20.0, type=float,
+                        help="When --shift_mode space, evaluate shifts from -max_shift_cm .. +max_shift_cm (cm).")
+    parser.add_argument("--shift_step_cm", default=1.0, type=float,
+                        help="When --shift_mode space, spacing between evaluated shifts in cm.")
     parser.add_argument("--n_batches", default=40, type=int, help="Number of trajectory batches to aggregate.")
     parser.add_argument("--Ng_use", default=512, type=int, help="Number of units to analyze.")
     parser.add_argument("--gridness_threshold", default=0.2, type=float, help="Minimum gridness to include a unit.")
@@ -320,7 +330,12 @@ def main() -> None:
     model.eval()
 
     traj_gen = TrajectoryGenerator(options, place_cells)
-    lags = list(range(-args.max_lag, args.max_lag + 1))
+    shift_values = build_shift_values(
+        args.shift_mode,
+        max_lag=args.max_lag,
+        max_shift_cm=args.max_shift_cm,
+        shift_step_cm=args.shift_step_cm,
+    )
 
     Ng_eval = min(args.Ng_use, options.Ng)
 
@@ -328,14 +343,19 @@ def main() -> None:
         model,
         traj_gen,
         options,
-        lags=lags,
+        lags=shift_values,
         res=args.res,
         n_batches=args.n_batches,
         Ng=Ng_eval,
+        shift_mode=args.shift_mode,
+        space_projection=args.space_projection,
     )
 
     cm_step = cm_per_step_from_positions(xs, ys)
-    lag_cm = np.array(lags, dtype=float) * cm_step
+    lag_cm = shift_values_to_cm(shift_values, args.shift_mode, cm_step)
+    print(f"Shift mode: {shift_config_label(args.shift_mode, args.space_projection)}")
+    print(f"Mean cm-per-step: {cm_step:.3f}")
+    print(f"Shift range on position axis: {lag_cm[0]:.1f} .. {lag_cm[-1]:.1f} cm")
 
     classes = classify_units(lag_cm, scores_60, args.shift_threshold_cm, args.gridness_threshold)
 

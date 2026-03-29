@@ -363,6 +363,7 @@ def main():
     parser.add_argument("--shuffle_alpha", default=0.05, type=float, help="Tail probability for shuffle thresholds.")
     parser.add_argument("--shuffle_seed", default=0, type=int)
     parser.add_argument("--device", default=None, help="Set to 'cpu' or 'cuda'. Defaults to best available.")
+    parser.add_argument("--random_seed", default=0, type=int, help="Random seed for reproducibility.")
     args = parser.parse_args()
 
     summarize_checkpoint(args)

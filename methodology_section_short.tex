@@ -1,0 +1,155 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{Materials and Methods}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Materials and Methods}
+
+%%% --- 1. Grid score computation and cell classification --- %%%
+
+\subsection*{Grid Score Computation and Predictive Cell Classification}
+
+Spatial tuning was quantified using established grid score metrics \cite{sargolini2006}. For each unit (biological neuron or RNN hidden unit), a rate map $R_u(x,y)$ was constructed by binning the arena into a $20 \times 20$ grid and computing the mean activity in each spatial bin. The two-dimensional spatial autocorrelogram (SAC) was computed, and gridness was assessed by correlating the SAC with rotated copies of itself. The $60^\circ$ grid score was:
+\begin{equation}
+    \mathrm{grid}_{60} = \frac{\rho_{60} + \rho_{120}}{2} - \frac{\rho_{30} + \rho_{90} + \rho_{150}}{3},
+\end{equation}
+where $\rho_\theta$ is the Pearson correlation between the SAC and its rotation by $\theta$ degrees within an annular mask. Scores were maximized over 10 concentric annular masks (inner radius~0.2, outer radius~0.4--1.0 in SAC half-width units).
+
+To identify predictive and retrospective coding, we employed the temporal shift analysis of Ouchi and Fujisawa \cite{ouchi2024}. For integer lag~$k$, each unit's activity at time~$t$ was realigned with positions at time~$t + k$:
+\begin{equation}
+    \mathcal{D}_k = \left\{\!\left(\mathbf{p}_{t+k},\; g_{t,u}\right) \;\middle|\; 0 \le t < T - |k| \right\}.
+\end{equation}
+Positive lags ($k > 0$) test predictive coding; negative lags ($k < 0$) test retrospective coding. Shifted rate maps were scored for gridness at each lag $k \in [-20, +20]$, yielding a profile $s_{60}(k,u)$. Lags were converted to centimeters via the mean per-step displacement $\Delta_{\mathrm{cm}} = \frac{100}{T-1}\sum_{t}\lVert\mathbf{p}_{t+1} - \mathbf{p}_t\rVert$.
+
+Units were classified as \textit{predictive grid cells} (peak gridness at forward shift $\ge 5$\,cm), \textit{retrospective grid cells} (backward shift $\le -5$\,cm), \textit{zero-lag grid cells} (peak within $\pm\,5$\,cm), or \textit{non-grid} (peak gridness $< 0.2$ at all lags). Significance was established via shuffle controls: activity was randomly permuted 100 times and a unit's score was retained only if it exceeded the 95th percentile of the shuffle distribution ($\alpha = 0.05$).
+
+%%% --- 2. Biological recordings --- %%%
+
+\subsection*{Predictive Grid Cells in Biological Recordings}
+
+To assess whether predictive grid coding is a general computation performed by the brain, we applied the above classification pipeline to medial entorhinal cortex (MEC) recordings. Rate maps, SACs, and gridness-versus-lag profiles were computed identically to the procedure described above. Units were classified into predictive, retrospective, and zero-lag classes using the same thresholds (peak gridness~$\ge 0.2$, minimum shift~$\ge 5$\,cm) and validated with shuffle controls ($n = 100$ permutations, $\alpha = 0.05$). The identification of predictive grid cells in biological data provides convergent evidence, alongside the RNN analyses described below, that predictive coding is an intrinsic feature of grid cell circuits rather than an artifact of a particular model architecture.
+
+%%% --- 3. RNN model --- %%%
+
+\subsection*{RNN Model of Path Integration}
+
+To test whether predictive grid cells emerge as part of the circuit supporting path integration, we trained RNNs following Banino et al.\ \cite{banino2018} and Cueva and Wei \cite{cueva2018}. The architecture comprised a linear encoder ($N_p \to N_g$), a vanilla RNN with ReLU nonlinearity, and a linear decoder ($N_g \to N_p$), all without bias. The hidden state evolved as:
+\begin{equation}
+    \mathbf{h}_t = \mathrm{ReLU}\!\left(\mathbf{W}_{hh}\,\mathbf{h}_{t-1} + \mathbf{W}_{ih}\,\mathbf{v}_t\right),
+\end{equation}
+where $\mathbf{v}_t$ is the velocity input and $\mathbf{h}_0$ was initialized by encoding the starting place cell activation. The loss combined cross-entropy with $\ell_2$ regularization on recurrent weights:
+\begin{equation}
+    \mathcal{L} = -\frac{1}{N}\sum_n \mathbf{y}_n \cdot \log\!\left(\mathrm{softmax}(\hat{\mathbf{y}}_n)\right) + \lambda\,\lVert\mathbf{W}_{hh}\rVert_F^2,
+\end{equation}
+where $\lambda = 10^{-6}$. The hidden layer contained $N_g = 4{,}096$ units. Place cells ($N_p = 256$) used difference-of-Gaussians (DoG) receptive fields ($\sigma = 0.12$\,m, surround scale ratio~$= 2$) with centers uniformly tiling a $2.2 \times 2.2$\,m arena with reflective boundaries. Place cell activations were computed as softmax-normalized Gaussian responses to the agent's position. Networks were optimized with Adam (learning rate~$= 10^{-4}$, batch size~$= 100$ trajectories, sequence length~$= 20$ time steps, 5 epochs of 250 batches each). Decoding error was computed as the Euclidean distance between the true position and the position estimated by averaging the centers of the $k = 3$ most active predicted place cells. To ensure generality, five networks were trained with independent random seeds (Seeds~0--4) using identical hyperparameters, and results were aggregated as mean~$\pm$~SEM across seeds.
+
+\subsubsection*{Trajectory generation.}
+Synthetic trajectories were random walks ($\Delta t = 0.02$\,s) with Rayleigh-distributed speed ($b = 0.13 \times 2\pi$\,m/s), Gaussian heading noise ($\sigma = 5.76 \times 2$\,rad/s), and wall avoidance (slowdown factor~$= 0.25$ within 0.03\,m of boundaries). To probe the role of trajectory predictability, we also trained with \textit{straight} trajectories (fixed heading, 0.8\,m/s) and \textit{per-step random} trajectories (heading and speed resampled every step). Grid scores and cell classifications were computed identically to the biological analysis, applied to the $N_g$ hidden units of each trained network. For predictive and retrospective cells, we additionally quantified the distribution of preferred shifts using standard deviation, interquartile range, and 10th--90th percentile span, computed per-seed and on a pooled distribution across all seeds.
+
+%%% --- 4. Training emergence --- %%%
+
+\subsection*{Emergence of Predictive Representations During Training}
+
+To characterize when predictive grid cells arise relative to task acquisition, we analyzed intermediate training checkpoints saved at each epoch. At every checkpoint, gridness was computed at zero lag and across positive/negative lags using the same fixed set of cached evaluation trajectories (seed-controlled, ensuring fair comparison across epochs). We tracked the following metrics: (i)~the number and fraction of units classified as grid cells, predictive grid cells, retrospective grid cells, and their intersections (gridness threshold~$= 0.3$); (ii)~the mean gridness score within each class, testing whether cells become ``griddier'' over training even when their count stabilizes; and (iii)~the mean preferred spatial shift (cm) for predictive and retrospective cells, assessing whether predictive horizons change during learning.
+
+Training loss and position decoding error curves were overlaid with class emergence fractions to identify the temporal relationship between task acquisition and representational structure -- specifically, whether predictive grid cells emerge concurrently with, before, or after path integration competence. We additionally compared emergence dynamics across trajectory predictability regimes (random walk vs.\ straight vs.\ per-step random) to test whether exploitable temporal structure in the agent's motion (a ``rich'' learning regime) promotes the emergence of predictive coding relative to memorization-based solutions (a ``lazy'' regime).
+
+%%% --- 5. Ablation studies --- %%%
+
+\subsection*{Ablation Studies}
+
+To establish the causal contribution of predictive grid cells to path integration, we performed systematic ablation experiments. Ablation was implemented by zeroing the encoder, decoder, and recurrent weights associated with selected hidden units, effectively silencing them. Performance was assessed as the mean decoding error (cm) on a held-out set of 8 evaluation trajectory batches.
+
+We tested all eight combinations of class ablations (each of predictive, retrospective, and zero-lag individually; all pairwise unions; and the triple union) at graded percentile thresholds (0, 5, 10, 15, 20, 25, 50, 75, 100\% of each class, ranked by gridness), enabling dose--response characterization. Fixed-count ablations (top 25 or 50 units per class) enabled size-independent comparison. Each targeted ablation was compared against matched random controls in which the same number of randomly selected units was ablated (3 draws per condition). The difference between targeted and matched-random effects isolates the specific functional importance of each class beyond nonspecific effects of unit removal.
+
+%%% --- 6. Band and border cell overlap --- %%%
+
+\subsection*{Band and Border Cell Analysis}
+
+To investigate whether predictive grid coding is achieved through band-like representations, we computed band scores following Schaeffer et al.\ \cite{schaeffer2024}:
+\begin{equation}
+    \mathrm{band\_score}(u) = \max_{k_x, k_y \in \mathcal{K}}\;\mathrm{corr}\!\left(R_u,\;\cos\!\left(2\pi(k_x X + k_y Y)\right)\right),
+\end{equation}
+where $\mathcal{K}$ spans 0.0--2.0\,cycles/m in 0.1 increments. Units exceeding the 90th percentile were classified as band cells. Cross-tabulation with predictive/retrospective/zero-lag classes quantified overlap.
+
+Border cells were identified using the metric of Solstad et al.\ \cite{solstad2008}: firing fields were detected by thresholding rate maps at 30\% of peak (area~$> 200$\,cm$^2$), and the border score $= (C_M - D_M)/(C_M + D_M)$, where $C_M$ is maximum wall coverage and $D_M$ is mean firing-weighted wall distance. Units with border score~$\ge 0.5$ were classified as border cells. Predictive and retrospective border cells were identified by computing border scores across temporal lags ($k \in [-20, +20]$) and applying the same 5\,cm shift threshold. Overlap between border and grid cell classes was quantified.
+
+%%% --- 7. Toroidal manifold and population dynamics --- %%%
+
+\subsection*{Population Activity on the Toroidal Manifold}
+
+To test whether predictive grid cells guide population activity along the continuous attractor, we analyzed the toroidal geometry of network representations \cite{gardner2022}.
+
+\subsubsection*{Torus parameterization.}
+Lattice vectors $(\mathbf{k}_1, \mathbf{k}_2)$ were estimated via 2D FFT of the average grid-cell rate map, with $\mathbf{k}_2$ at $60^\circ$ from $\mathbf{k}_1$. Each unit's toroidal phase was:
+\begin{equation}
+    \varphi_j(u) = \arg\!\left(\sum_{x,y} R_u(x,y)\,\exp\!\left(-2\pi i\,\mathbf{k}_j \cdot (x, y)\right)\right),\quad j \in \{1,2\}.
+\end{equation}
+Hidden states were projected onto toroidal coordinates $(\theta_1, \theta_2, r_1, r_2)$ and embedded in 3D with major radius $R = 1.0$ and minor radius $r = 0.35$. Position was decoded from unwrapped phase trajectories via $\Delta\mathbf{p} = \Delta\boldsymbol{\theta}\,\mathbf{K}^{-\top}$; fidelity was quantified as RMSE (cm).
+
+\subsubsection*{Toroidal cell detection.}
+Each unit's SAC rotational profile (36 angles, $0^\circ$--$180^\circ$) was featurized (band-like score, grid-like score, anisotropy), embedded via UMAP \cite{mcinnes2018}, and clustered with DBSCAN ($\varepsilon = 1.2\times$ median $k$-NN distance, min\_samples~$= 6$). Up to three clusters meeting quality criteria (band score~$\ge 0.15$, size~$\ge 4$, angular separation~$\ge 20^\circ$) defined the toroidal ensemble.
+
+\subsubsection*{Manifold stability under ablation.}
+Two complementary metrics quantified how ablation of each cell class disrupts the toroidal manifold. First, the coefficient of variation (CV) of the toroidal radii $r_1$ and $r_2$ was compared between intact and ablated networks; increased CV indicates that population activity drifts away from the manifold surface. Second, we measured off-manifold distance: a baseline reference cloud of $80{,}000$ hidden states was constructed from $1{,}000$ trajectories run through the intact network ($z$-scored and optionally projected via PCA). For each ablation condition, 100 evaluation trajectories were run through the ablated model, and the mean $k$-nearest-neighbor distance ($k = 5$) from ablated states to the baseline cloud was computed at each time step. Ablation conditions -- predictive, retrospective, zero-lag, toroidal, and matched random controls at 25\%, 75\%, and 100\% thresholds -- were compared to identify which cell class is most critical for maintaining coherent population dynamics on the torus.
+
+%%% --- Software --- %%%
+
+\subsection*{Software and Reproducibility}
+
+All analyses were implemented in Python using PyTorch, NumPy/SciPy, scikit-learn, and Matplotlib. Random seeds were fixed for all stochastic components. Code and model checkpoints are available at [repository URL].
+
+
+\begin{thebibliography}{99}
+
+\bibitem{sargolini2006}
+F.~Sargolini \textit{et al.},
+``Conjunctive representation of position, direction, and velocity in entorhinal cortex,''
+\textit{Science} \textbf{312}, 758--762 (2006).
+
+\bibitem{ouchi2024}
+A.~Ouchi and S.~Fujisawa,
+``Predictive grid coding in the medial entorhinal cortex,''
+\textit{Science} (2024).
+
+\bibitem{banino2018}
+A.~Banino \textit{et al.},
+``Vector-based navigation using grid-like representations in artificial agents,''
+\textit{Nature} \textbf{557}, 429--433 (2018).
+
+\bibitem{cueva2018}
+C.~J. Cueva and X.-X. Wei,
+``Emergence of grid-like representations by training recurrent neural networks to perform spatial localization,''
+arXiv:1803.07770 (2018).
+
+\bibitem{schaeffer2024}
+R.~Schaeffer \textit{et al.},
+``Not so griddy: Internal representations of RNNs path integrating more than one agent,''
+\textit{NeurIPS} (2024).
+
+\bibitem{solstad2008}
+T.~Solstad \textit{et al.},
+``Representation of geometric borders in the entorhinal cortex,''
+\textit{Science} \textbf{322}, 1865--1868 (2008).
+
+\bibitem{gardner2022}
+R.~J. Gardner \textit{et al.},
+``Toroidal topology of population activity in grid cells,''
+\textit{Nature} \textbf{602}, 123--128 (2022).
+
+\bibitem{mcinnes2018}
+L.~McInnes, J.~Healy, and J.~Melville,
+``UMAP: Uniform Manifold Approximation and Projection for dimension reduction,''
+arXiv:1802.03426 (2018).
+
+\end{thebibliography}
+
+\end{document}

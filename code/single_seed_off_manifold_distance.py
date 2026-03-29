@@ -46,6 +46,9 @@ from trajectory_generator import TrajectoryGenerator
 from multi_seed_predictive_analysis import zero_unit_weights_in_place
 from single_seed_torus_distance import build_options
 from path_utils import analysis_dir_for_checkpoint
+from replicate_predictive_grid_figure import cm_per_step_from_positions
+from shift_utils import build_shift_values
+from visualize import predictive_gridness_analysis
 
 
 # --------------------------------------------------------------------------------------
@@ -99,6 +102,38 @@ def load_grid_units(
     classes = classify_from_scores(grid_data, min_shift_cm, gridness_threshold)
     score_vectors = class_score_vectors(grid_data, min_shift_cm)
     return grid_units, classes, score_vectors
+
+
+def load_saved_class_ids(class_dir: Path, suffix: str, max_units: int) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    """Load predictive/retrospective/grid IDs from a saved analysis-output folder."""
+    def _load(name: str) -> np.ndarray:
+        path = class_dir / f"{name}_{suffix}.npy"
+        if not path.exists():
+            raise FileNotFoundError(f"Missing saved class file: {path}")
+        return np.asarray(np.load(path), dtype=int).reshape(-1)
+
+    predictive = _load("predictive_ids")
+    retrospective = _load("retrospective_ids")
+    grid = _load("grid_ids")
+
+    dead_path = class_dir / f"dead_unit_ids_{suffix}.npy"
+    if dead_path.exists():
+        dead_mask = np.asarray(np.load(dead_path), dtype=bool).reshape(-1)
+        if dead_mask.size:
+            alive = np.where(~dead_mask)[0]
+            predictive = np.intersect1d(predictive, alive, assume_unique=False)
+            retrospective = np.intersect1d(retrospective, alive, assume_unique=False)
+            grid = np.intersect1d(grid, alive, assume_unique=False)
+
+    normal = np.setdiff1d(grid, np.union1d(predictive, retrospective), assume_unique=False)
+    grid_units = np.asarray(grid, dtype=int).reshape(-1)[:max_units]
+    if grid_units.size == 0:
+        raise RuntimeError(f"No saved grid units found in {class_dir} ({suffix}).")
+    return grid_units, {
+        "predictive": np.asarray(predictive, dtype=int).reshape(-1),
+        "retrospective": np.asarray(retrospective, dtype=int).reshape(-1),
+        "normal": np.asarray(normal, dtype=int).reshape(-1),
+    }
 
 
 def sanitize_units(units: Sequence[int], num_units: int, fallback: bool = False) -> np.ndarray:
@@ -325,6 +360,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Compute off-manifold distances for baseline, predictive, random, and retrospective ablations.")
     parser.add_argument("--base-dir", type=str, default="Models/Single agent path integration")
     parser.add_argument("--checkpoint", type=str, default=None, help="Optional single checkpoint to process.")
+    parser.add_argument("--class-dir", type=str, default=None, help="Optional directory containing saved predictive_ids_<suffix>.npy etc.")
+    parser.add_argument("--class-suffix", type=str, default="random_walk", help="Suffix used for saved class files in --class-dir.")
+    parser.add_argument("--output-dir", type=str, default=None, help="Optional output directory override.")
     parser.add_argument("--seed", type=int, default=None, help="Optional seed id to filter checkpoints.")
     parser.add_argument("--cloud-trajectories", type=int, default=1000)
     parser.add_argument("--eval-trajectories", type=int, default=100)
@@ -358,6 +396,8 @@ def main() -> None:
     parser.add_argument("--trajectory-speed-max", type=float, default=None)
     parser.add_argument("--trajectory-turn-sigma-scale", type=float, default=None)
     parser.add_argument("--trajectory-velocity-smoothing", type=float, default=None)
+    parser.add_argument("--score-batches", type=int, default=8, help="Batches used to rank saved predictive/retrospective units.")
+    parser.add_argument("--max-lag", type=int, default=20, help="Time-lag sweep used when ranking saved class IDs.")
     parser.add_argument("--rng-seed", type=int, default=123)
     args = parser.parse_args()
 
@@ -398,13 +438,6 @@ def main() -> None:
         raw = torch.load(ckpt_path, map_location="cpu")
         state = extract_state(raw)
 
-        grid_units, class_indices, score_vectors = load_grid_units(
-            ckpt_path,
-            gridness_threshold=args.gridness_threshold,
-            max_units=args.max_units,
-            min_shift_cm=args.min_shift_cm,
-        )
-
         options = build_options(Path(ckpt_path), device=str(device))
         dt = float(getattr(options, "trajectory_dt", 0.02))
 
@@ -428,6 +461,63 @@ def main() -> None:
             model = RNN(options_style, place_cells).to(device)
             model.load_state_dict(state)
             model.eval()
+
+            if args.class_dir:
+                grid_units, class_indices = load_saved_class_ids(
+                    Path(args.class_dir),
+                    args.class_suffix,
+                    args.max_units,
+                )
+                ranking_units = np.unique(
+                    np.concatenate(
+                        [
+                            np.asarray(class_indices.get("predictive", []), dtype=int),
+                            np.asarray(class_indices.get("retrospective", []), dtype=int),
+                        ]
+                    )
+                )
+                ranking_units = ranking_units[(ranking_units >= 0) & (ranking_units < model.Ng)]
+                score_vectors = {
+                    "predictive": np.full(model.Ng, np.nan, dtype=float),
+                    "retrospective": np.full(model.Ng, np.nan, dtype=float),
+                    "normal": np.full(model.Ng, np.nan, dtype=float),
+                }
+                if ranking_units.size:
+                    lags = build_shift_values("time", max_lag=args.max_lag)
+                    scores_60, _, xs, ys, _, _ = predictive_gridness_analysis(
+                        model,
+                        traj_gen,
+                        options_style,
+                        lags=lags,
+                        res=20,
+                        n_batches=args.score_batches,
+                        Ng=int(ranking_units.size),
+                        idxs=ranking_units,
+                    )
+                    lag_cm = np.asarray(lags, dtype=float) * float(cm_per_step_from_positions(xs, ys))
+                    partial_scores = class_score_vectors(
+                        {"lag_cm": lag_cm, "scores_60": np.asarray(scores_60, dtype=float)},
+                        args.min_shift_cm,
+                    )
+                    score_vectors["predictive"][ranking_units] = partial_scores["predictive"]
+                    score_vectors["retrospective"][ranking_units] = partial_scores["retrospective"]
+                class_source = {
+                    "mode": "saved_ids",
+                    "class_dir": str(Path(args.class_dir).resolve()),
+                    "class_suffix": args.class_suffix,
+                }
+            else:
+                grid_units, class_indices, score_vectors = load_grid_units(
+                    ckpt_path,
+                    gridness_threshold=args.gridness_threshold,
+                    max_units=args.max_units,
+                    min_shift_cm=args.min_shift_cm,
+                )
+                class_source = {
+                    "mode": "gridness_data",
+                    "gridness_threshold": float(args.gridness_threshold),
+                    "min_shift_cm": float(args.min_shift_cm),
+                }
 
             grid_units = sanitize_units(grid_units, model.Ng, fallback=True)
             predictive_units = sanitize_units(class_indices.get("predictive", []), model.Ng, fallback=False)
@@ -511,7 +601,10 @@ def main() -> None:
                 stats_by_label["Retrospective ablation"] = summarize_distances(retro_dist)
                 dist_by_label["retrospective"] = retro_dist
 
-                out_dir = analysis_dir_for_checkpoint(ckpt_path) / "torus"
+                if args.output_dir:
+                    out_dir = Path(args.output_dir)
+                else:
+                    out_dir = analysis_dir_for_checkpoint(ckpt_path) / "torus"
                 out_dir.mkdir(parents=True, exist_ok=True)
                 stem = f"off_manifold_seed_{seed}_{style}_pct{pct_label}_multi"
 
@@ -543,6 +636,7 @@ def main() -> None:
                 summary = {
                     "seed": seed,
                     "checkpoint": str(ckpt_path),
+                    "class_source": class_source,
                     "trajectory_style": style,
                     "ablation_percent": float(pct),
                     "cloud_trajectories": int(args.cloud_trajectories),

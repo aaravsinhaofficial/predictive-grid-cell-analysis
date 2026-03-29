@@ -12,17 +12,8 @@ from trainer import Trainer
 from visualize import compute_ratemaps, plot_ratemaps, save_ratemaps
 from visualize import predictive_gridness_analysis, plot_predictive_gridness_per_cell, plot_predictive_heatmap
 from scores import GridScorer, border_score
+from shift_utils import parse_shift_values, shift_axis_label
 import argparse
-
-def _parse_lags(lags_str):
-    """Parse lags from string like '-5:6' or '0,1,2,3'."""
-    if lags_str is None:
-        return None
-    s = lags_str.strip()
-    if ':' in s:
-        a, b = s.split(':')
-        return list(range(int(a), int(b)))
-    return [int(x) for x in s.split(',') if x]
 
 
 def evaluate_model(options):
@@ -115,22 +106,25 @@ def evaluate_model(options):
     print(f"  Std:  {np.nanstd(border_scores):.3f}")
     
     # 4. Predictive gridness (optional)
-    pred_lags = _parse_lags(options.predictive_lags)
+    pred_lags = parse_shift_values(options.predictive_lags, shift_mode=options.shift_mode)
     if pred_lags is not None and len(pred_lags) > 0:
-        print("\nComputing predictive gridness across shifts...")
+        print(f"\nComputing predictive gridness across {options.shift_mode} shifts...")
         s60_lag, s90_lag, xs_seq, ys_seq, g_seq, scorer = predictive_gridness_analysis(
             model, trajectory_generator, options,
             lags=pred_lags,
             res=res,
             n_batches=options.n_pred_batches,
-            Ng=Ng)
+            Ng=Ng,
+            shift_mode=options.shift_mode,
+            space_projection=options.space_projection)
 
         # Plot per-cell shift responses for top cells by max score
         top_by_max = np.argsort(np.nanmax(s60_lag, axis=0))[::-1]
         n_plot = min(options.predictive_plot_cells, len(top_by_max))
         sel = top_by_max[:n_plot].tolist()
         fig = plot_predictive_gridness_per_cell(s60_lag, pred_lags, scores_90=s90_lag, cell_indices=sel,
-                                                suptitle='Predictive gridness per cell')
+                                                suptitle='Predictive gridness per cell',
+                                                shift_mode=options.shift_mode)
         if options.checkpoint_path:
             save_dir = os.path.dirname(options.checkpoint_path)
         else:
@@ -140,7 +134,12 @@ def evaluate_model(options):
         print(f"Saved predictive per-cell plot to {out_path}")
 
         # Heatmap across all units
-        fig_hm = plot_predictive_heatmap(s60_lag, pred_lags, title='Predictive gridness (60°) heatmap')
+        fig_hm = plot_predictive_heatmap(
+            s60_lag,
+            pred_lags,
+            title=f'Predictive gridness (60°) heatmap [{shift_axis_label(options.shift_mode)}]',
+            shift_mode=options.shift_mode,
+        )
         out_hm = os.path.join(save_dir, 'predictive_gridness_heatmap.png')
         fig_hm.savefig(out_hm, dpi=150)
         print(f"Saved predictive heatmap to {out_hm}")
@@ -228,8 +227,12 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', default=1e-4, type=float)
     parser.add_argument('--device', 
                         default='cuda' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--shift_mode', default='time', choices=['time', 'space'],
+                        help='Interpret predictive shifts as time steps or direct spatial displacements.')
+    parser.add_argument('--space_projection', default='path', choices=['path', 'heading'],
+                        help='When --shift_mode space, use arc-length along the trajectory or heading-based projection.')
     parser.add_argument('--predictive_lags', default=None,
-                        help="Comma-separated list (e.g., '-5,-4,...,5') or range 'start:end' (end exclusive) to compute predictive gridness across shifts.")
+                        help="Comma-separated list or range 'start:end[:step]'. In time mode these are steps; in space mode they are centimeters.")
     parser.add_argument('--n_pred_batches', default=20, type=int,
                         help='How many trajectory batches to aggregate for predictive analysis (increases trajectories).')
     parser.add_argument('--predictive_plot_cells', default=16, type=int,

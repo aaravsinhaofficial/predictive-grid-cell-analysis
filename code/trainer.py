@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from visualize import predictive_gridness_analysis, save_ratemaps
+from shift_utils import shift_values_to_cm
 
 
 class Trainer(object):
@@ -146,6 +147,8 @@ class Trainer(object):
         threshold = float(getattr(self.options, "grid_eval_threshold", 0.3))
         max_units = getattr(self.options, "grid_eval_max_units", None)
         res = int(getattr(self.options, "grid_eval_res", 20))
+        shift_mode = getattr(self.options, "grid_eval_shift_mode", "time")
+        space_projection = getattr(self.options, "grid_eval_space_projection", "path")
 
         Ng_eval = self.model.Ng if max_units is None else min(int(max_units), self.model.Ng)
         idxs = np.arange(Ng_eval)
@@ -161,16 +164,18 @@ class Trainer(object):
                 n_batches=n_batches,
                 Ng=Ng_eval,
                 idxs=idxs,
+                shift_mode=shift_mode,
+                space_projection=space_projection,
             )
         self.model.train()
 
-        lags_arr = np.array(lags)
+        lags_arr = np.array(lags, dtype=float)
         cm_step = self._cm_per_step(xs, ys)
-        lag_cm = lags_arr * cm_step
+        lag_cm = shift_values_to_cm(lags_arr, shift_mode, cm_step)
 
-        zero_mask = lags_arr == 0
+        zero_mask = np.isclose(lags_arr, 0.0)
         zero_scores = scores_60[zero_mask][0] if np.any(zero_mask) else np.full(Ng_eval, np.nan)
-        positive_mask = lags_arr > 0
+        positive_mask = lag_cm > 0
         if np.any(positive_mask):
             positive_scores = scores_60[positive_mask]
             best_idx, best_vals = self._nanargmax_with_fill(positive_scores)
@@ -192,6 +197,8 @@ class Trainer(object):
         grid_entry: Dict[str, Any] = {
             "epoch": epoch_idx,
             "lags": lags,
+            "shift_mode": shift_mode,
+            "space_projection": space_projection,
             "lag_cm": lag_cm.tolist(),
             "cm_per_step": cm_step,
             "gridness_threshold": threshold,

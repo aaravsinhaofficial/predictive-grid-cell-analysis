@@ -96,9 +96,22 @@ class Trainer(object):
 
                 terms_text = ""
                 if loss_terms:
+                    display_keys = [
+                        "ce_loss",
+                        "excess_ce",
+                        "uniform_margin",
+                        "rec_reg_loss",
+                    ]
+                    display_items = [
+                        (key, loss_terms[key])
+                        for key in display_keys
+                        if key in loss_terms
+                    ]
+                    if not display_items:
+                        display_items = sorted(loss_terms.items())
                     terms_text = ". " + ", ".join(
                         "{}: {}".format(key, np.round(value, 4))
-                        for key, value in sorted(loss_terms.items()))
+                        for key, value in display_items)
                 print('Epoch: {}/{}. Step {}/{}. Loss: {}. Err: {}cm{}'.format(
                     epoch_idx, n_epochs, step_idx, n_steps,
                     np.round(loss, 2), np.round(100 * err, 2), terms_text))

@@ -67,6 +67,9 @@ class RNN(torch.nn.Module):
         preds = self.predict(inputs)
         yhat = self.softmax(preds)
         ce_loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
+        target_entropy = -(y * torch.log(y.clamp_min(1e-12))).sum(-1).mean()
+        uniform_ce = torch.log(torch.as_tensor(float(self.Np), device=ce_loss.device))
+        excess_ce = ce_loss - target_entropy
 
         # Regularize the realized recurrent matrix, not the raw factors. With
         # the low-rank initialization, factor L2 is enormous and can dominate
@@ -76,7 +79,11 @@ class RNN(torch.nn.Module):
         loss = ce_loss + rec_reg_loss
         self.last_loss_terms = {
             "ce_loss": float(ce_loss.detach().cpu()),
+            "excess_ce": float(excess_ce.detach().cpu()),
             "rec_reg_loss": float(rec_reg_loss.detach().cpu()),
+            "target_entropy": float(target_entropy.detach().cpu()),
+            "uniform_ce": float(uniform_ce.detach().cpu()),
+            "uniform_margin": float((uniform_ce - ce_loss).detach().cpu()),
         }
 
         pred_pos = self.place_cells.get_nearest_cell_pos(preds)

@@ -1,0 +1,42 @@
+{
+  "checkpoints": [
+    "Seed 0(trained advanced)/most_recent_model.pth"
+  ],
+  "temporal_subdir": "temporal_cmp",
+  "spatial_subdir": "spatial_path_cmp",
+  "gridness_threshold": 0.2,
+  "min_shift_cm": 5.0,
+  "ablation_percentile": 100.0,
+  "records": [
+    {
+      "seed": "0",
+      "checkpoint": "Seed 0(trained advanced)/most_recent_model.pth",
+      "temporal": {
+        "count": {
+          "predictive": 19,
+          "retrospective": 19,
+          "normal": 27
+        },
+        "fraction": {
+          "predictive": 0.1484375,
+          "retrospective": 0.1484375,
+          "normal": 0.2109375
+        }
+      },
+      "spatial": {
+        "count": {
+          "predictive": 20,
+          "retrospective": 22,
+          "normal": 22
+        },
+        "fraction": {
+          "predictive": 0.15625,
+          "retrospective": 0.171875,
+          "normal": 0.171875
+        }
+      }
+    }
+  ],
+  "temporal_ablation_json": "analysis_outputs/Seed 0(trained advanced)/comparison/temporal_ablation/results.json",
+  "spatial_ablation_json": "analysis_outputs/Seed 0(trained advanced)/comparison/spatial_ablation/results.json"
+}

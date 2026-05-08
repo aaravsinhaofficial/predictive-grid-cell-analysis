@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.numba_cache/
+.mplconfig/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+cookies.txt
+*.pth

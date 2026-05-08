@@ -1,0 +1,73 @@
+{
+  "suffix": "straight",
+  "checkpoint": "Seed 0(trained advanced)/most_recent_model.pth",
+  "class_dir": "Seed 0(trained advanced)/analysis_outputs/predictive_retrospective",
+  "shift_mode": "space",
+  "space_projection": "heading",
+  "max_shift_cm": 20.0,
+  "shift_step_cm": 1.0,
+  "min_shift_cm": 5.0,
+  "score_batches": 10,
+  "ablation_batches": 8,
+  "percentiles": [
+    0.0,
+    25.0,
+    50.0,
+    75.0,
+    100.0
+  ],
+  "baseline_error_cm": 7.469124203236799,
+  "class_counts": {
+    "predictive": 157,
+    "retrospective": 245,
+    "normal": 1201,
+    "grid": 1201
+  },
+  "removed_counts": {
+    "predictive": [
+      0,
+      40,
+      79,
+      118,
+      157
+    ],
+    "retrospective": [
+      0,
+      62,
+      123,
+      184,
+      245
+    ],
+    "normal": [
+      0,
+      301,
+      601,
+      901,
+      1201
+    ]
+  },
+  "errors_cm": {
+    "predictive": [
+      7.469124203236799,
+      32.6308181436897,
+      58.54758752771856,
+      75.65764153171087,
+      75.6549957117088
+    ],
+    "retrospective": [
+      7.469124203236799,
+      33.87754755197174,
+      51.57283757125341,
+      66.70310641019447,
+      72.22079648207693
+    ],
+    "normal": [
+      7.469124203236799,
+      81.4241010166127,
+      109.36856816047344,
+      99.023446514184,
+      103.13302814980135
+    ]
+  },
+  "plot_path": "Seed 0(trained advanced)/analysis_outputs/heading_space_ablation/straight_heading_space_ablation.png"
+}

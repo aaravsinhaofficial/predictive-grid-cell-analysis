@@ -1,0 +1,37 @@
+{
+  "checkpoint": "steps_40_batch_200_Ng_4096_relu_lr_00001_weight_decay_00001_shape_22x22_straightness_10_trajectory_style_random_walk/Seed 1/most_recent_model.pth",
+  "num_units_scored": 512,
+  "band": {
+    "percentile": 90.0,
+    "threshold": null,
+    "cutoff": 0.444864296913147,
+    "count": 38,
+    "fraction": 0.07421875
+  },
+  "border": {
+    "threshold": 0.5,
+    "count": 15
+  },
+  "classes": {
+    "predictive": 157,
+    "retrospective": 83,
+    "normal": 57,
+    "low_grid": 215
+  },
+  "band_overlap": {
+    "predictive": 16,
+    "retrospective": 12,
+    "normal": 7,
+    "low_grid": 3
+  },
+  "border_overlap": {
+    "border": 15,
+    "band": 38,
+    "band_and_border": 6
+  },
+  "predictive_border_overlap": {
+    "predictive": 1,
+    "retrospective": 2,
+    "normal": 6
+  }
+}

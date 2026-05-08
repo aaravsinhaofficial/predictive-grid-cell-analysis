@@ -1,0 +1,88 @@
+{
+  "metric_definition": {
+    "std_cm": "Standard deviation of preferred shift (cm) among predictive units.",
+    "iqr_cm": "Interquartile range Q75-Q25 (cm) among predictive units.",
+    "span_p10_p90_cm": "P90-P10 span (cm) among predictive units.",
+    "cv": "std_cm / |mean_cm|."
+  },
+  "search_root": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration",
+  "seed_count": 5,
+  "pooled": {
+    "count": 1925,
+    "mean_cm": 17.020860187032007,
+    "median_cm": 15.893842279911041,
+    "std_cm": 8.378542316918486,
+    "iqr_cm": 11.920381709933281,
+    "p10_cm": 5.9601908549666405,
+    "p90_cm": 29.800954274833202,
+    "span_p10_p90_cm": 23.840763419866562,
+    "cv": 0.49225140353422014
+  },
+  "records": [
+    {
+      "seed": 0,
+      "gridness_path": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 0 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/gridness_data.npz",
+      "count": 314,
+      "mean_cm": 17.374399243883648,
+      "median_cm": 15.893842279911041,
+      "std_cm": 8.115660926837492,
+      "iqr_cm": 11.920381709933281,
+      "p10_cm": 7.946921139955521,
+      "p90_cm": 29.800954274833202,
+      "span_p10_p90_cm": 21.85403313487768,
+      "cv": 0.46710454919627586
+    },
+    {
+      "seed": 1,
+      "gridness_path": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 1 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/gridness_data.npz",
+      "count": 539,
+      "mean_cm": 17.338737032630227,
+      "median_cm": 15.893842279911041,
+      "std_cm": 7.8003938840097735,
+      "iqr_cm": 10.92701656743884,
+      "p10_cm": 7.946921139955521,
+      "p90_cm": 27.814223989844322,
+      "span_p10_p90_cm": 19.8673028498888,
+      "cv": 0.4498824723438693
+    },
+    {
+      "seed": 2,
+      "gridness_path": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 2 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/gridness_data.npz",
+      "count": 583,
+      "mean_cm": 15.389492224716609,
+      "median_cm": 13.907111994922161,
+      "std_cm": 7.991281012987906,
+      "iqr_cm": 11.920381709933281,
+      "p10_cm": 5.9601908549666405,
+      "p90_cm": 25.827493704855442,
+      "span_p10_p90_cm": 19.8673028498888,
+      "cv": 0.5192686604457343
+    },
+    {
+      "seed": 3,
+      "gridness_path": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/gridness_data.npz",
+      "count": 266,
+      "mean_cm": 17.738663258829288,
+      "median_cm": 17.88057256489992,
+      "std_cm": 8.70067847277953,
+      "iqr_cm": 13.907111994922161,
+      "p10_cm": 6.9535559974610806,
+      "p90_cm": 31.787684559822083,
+      "span_p10_p90_cm": 24.834128562361002,
+      "cv": 0.4904923412398811
+    },
+    {
+      "seed": 4,
+      "gridness_path": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 4 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/gridness_data.npz",
+      "count": 223,
+      "mean_cm": 19.163483600946552,
+      "median_cm": 17.88057256489992,
+      "std_cm": 9.81535890281922,
+      "iqr_cm": 15.893842279911041,
+      "p10_cm": 7.946921139955521,
+      "p90_cm": 35.76114512979984,
+      "span_p10_p90_cm": 27.814223989844322,
+      "cv": 0.5121907429097189
+    }
+  ]
+}

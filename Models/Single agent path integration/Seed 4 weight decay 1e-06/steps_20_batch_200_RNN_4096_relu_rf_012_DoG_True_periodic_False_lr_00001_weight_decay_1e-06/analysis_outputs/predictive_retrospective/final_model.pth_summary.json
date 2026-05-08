@@ -1,0 +1,31 @@
+{
+  "checkpoint": "/Users/wredman/Documents/GitHub/predictive-grid-cell-analysis/Models/Single agent path integration/Seed 4 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/final_model.pth",
+  "cm_per_step": 1.987458348274231,
+  "gridness_threshold": 0.5,
+  "zero_shift_threshold": 0.5,
+  "min_shift_cm": 5.0,
+  "shuffle_trials": 100,
+  "shuffle_alpha": 0.05,
+  "counts": {
+    "predictive": 819,
+    "retrospective": 568,
+    "zero_lag": 912,
+    "low_grid": 2588,
+    "other": 596
+  },
+  "preferred_shift_mean_cm": {
+    "predictive": 15.727371862228683,
+    "retrospective": -15.511272637147298
+  },
+  "preferred_shift_median_cm": {
+    "predictive": 17.88712513446808,
+    "retrospective": -17.88712513446808
+  },
+  "gridness_means": {
+    "predictive_zero": 0.28595179189482267,
+    "predictive_shift": 0.45969504929735366,
+    "retrospective_zero": 0.22229842885397885,
+    "retrospective_shift": 0.4284277911743145
+  },
+  "figure_path": "/Users/wredman/Documents/GitHub/predictive-grid-cell-analysis/Models/Single agent path integration/Seed 4 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/analysis_outputs/predictive_retrospective/final_model.pth_summary.png"
+}

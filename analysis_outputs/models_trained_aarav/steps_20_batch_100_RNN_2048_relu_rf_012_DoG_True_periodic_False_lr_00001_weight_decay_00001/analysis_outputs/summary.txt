@@ -1,0 +1,17 @@
+cm_per_step: 1.9155105575919151
+lag_cm: [-3.8310211151838303, -1.9155105575919151, 0.0, 1.9155105575919151, 3.8310211151838303]
+zero_scores_mean: 0.07989000009014557
+shifted_scores_mean: nan
+num_predictive: 0
+num_phase_precession: 0
+num_phase_locked: 8
+num_low_grid_units: 0
+preferred_shift_mean_predictive_cm: nan
+preferred_shift_median_predictive_cm: nan
+preferred_shift_mean_retrospective_cm: nan
+preferred_shift_median_retrospective_cm: nan
+ablation_batches: 8
+ablation_predictive_units: 0
+ablation_baseline_error_cm: 90.19785789110144
+ablation_predictive_error_cm: None
+ablation_random_error_cm: []

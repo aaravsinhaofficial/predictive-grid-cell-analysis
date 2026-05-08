@@ -1,0 +1,8 @@
+{
+  "batches": 8,
+  "baseline_error_cm": 90.19785789110144,
+  "predictive_error_cm": null,
+  "random_error_cm": [],
+  "predictive_unit_count": 0,
+  "random_trials": 5
+}

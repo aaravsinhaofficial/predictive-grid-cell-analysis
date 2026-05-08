@@ -1,0 +1,72 @@
+{
+  "k1_cycles_per_m": [
+    -0.9090909090909091,
+    0.9090909090909091
+  ],
+  "k2_cycles_per_m": [
+    -1.2418412761676716,
+    -0.33275036707676187
+  ],
+  "peak_angle_rad": 2.356194490192345,
+  "peak_power": 0.611140925225075,
+  "grid_units_used": 512,
+  "predictive_units": 583,
+  "retrospective_units": 337,
+  "normal_units": 318,
+  "Baseline": {
+    "rmse_cm": 42.815157771110535,
+    "step_rmse_cm": 4.820097813715753,
+    "radius_cv": {
+      "r1_cv": 0.4324948904975249,
+      "r2_cv": 0.3616069486660543
+    },
+    "major_radius_mean": 0.9901390364847605,
+    "major_radius_std": 0.2514824379718577,
+    "major_radius_cv": 0.253986991892384,
+    "minor_radius_mean": 0.3496537525013881,
+    "minor_radius_std": 0.12476545685203193,
+    "minor_radius_cv": 0.3568257237087121
+  },
+  "Predictive ablated": {
+    "rmse_cm": 70.58398127555847,
+    "step_rmse_cm": 11.895325115629266,
+    "radius_cv": {
+      "r1_cv": 0.7283038530046702,
+      "r2_cv": 0.627929230129742
+    },
+    "major_radius_mean": 0.9341945653966521,
+    "major_radius_std": 0.30758763411524176,
+    "major_radius_cv": 0.3292543568716852,
+    "minor_radius_mean": 0.4014334508803746,
+    "minor_radius_std": 0.24468151810803876,
+    "minor_radius_cv": 0.6095194894103578
+  },
+  "Retrospective ablated": {
+    "rmse_cm": 75.94059109687805,
+    "step_rmse_cm": 12.599707566009002,
+    "radius_cv": {
+      "r1_cv": 0.797757094837798,
+      "r2_cv": 0.7222604483391786
+    },
+    "major_radius_mean": 1.0607614802075616,
+    "major_radius_std": 0.34577228461336257,
+    "major_radius_cv": 0.32596609869925103,
+    "minor_radius_mean": 0.43051508652052944,
+    "minor_radius_std": 0.31342014615512703,
+    "minor_radius_cv": 0.728011976091485
+  },
+  "Normal grid ablated": {
+    "rmse_cm": 57.5501024723053,
+    "step_rmse_cm": 7.676869669210985,
+    "radius_cv": {
+      "r1_cv": 0.5412385423875691,
+      "r2_cv": 0.5208174603583337
+    },
+    "major_radius_mean": 1.0515526413925147,
+    "major_radius_std": 0.31039693689581666,
+    "major_radius_cv": 0.2951796436296125,
+    "minor_radius_mean": 0.37681182138807057,
+    "minor_radius_std": 0.19482809303284007,
+    "minor_radius_cv": 0.5170434599018487
+  }
+}

@@ -121,20 +121,32 @@ class GridScorer(object):
     n_bins = filter2(ones_seq1, ones_seq2)
     n_bins_sq = np.square(n_bins)
 
-    std_seq1 = np.power(
-        np.subtract(
-            np.divide(sum_seq1_sq, n_bins),
-            (np.divide(np.square(sum_seq1), n_bins_sq))), 0.5)
-    std_seq2 = np.power(
-        np.subtract(
-            np.divide(sum_seq2_sq, n_bins),
-            (np.divide(np.square(sum_seq2), n_bins_sq))), 0.5)
-    covar = np.subtract(
-        np.divide(seq1_x_seq2, n_bins),
-        np.divide(np.multiply(sum_seq1, sum_seq2), n_bins_sq))
-    x_coef = np.divide(covar, np.multiply(std_seq1, std_seq2))
+    safe_bins = n_bins > 0
+    safe_bins_sq = n_bins_sq > 0
+
+    mean_seq1_sq = np.divide(
+        sum_seq1_sq, n_bins, out=np.zeros_like(sum_seq1_sq, dtype=float), where=safe_bins)
+    mean_seq2_sq = np.divide(
+        sum_seq2_sq, n_bins, out=np.zeros_like(sum_seq2_sq, dtype=float), where=safe_bins)
+    mean_seq1 = np.divide(
+        np.square(sum_seq1), n_bins_sq, out=np.zeros_like(sum_seq1, dtype=float), where=safe_bins_sq)
+    mean_seq2 = np.divide(
+        np.square(sum_seq2), n_bins_sq, out=np.zeros_like(sum_seq2, dtype=float), where=safe_bins_sq)
+
+    var_seq1 = np.maximum(mean_seq1_sq - mean_seq1, 0.0)
+    var_seq2 = np.maximum(mean_seq2_sq - mean_seq2, 0.0)
+    std_seq1 = np.sqrt(var_seq1)
+    std_seq2 = np.sqrt(var_seq2)
+
+    cross_mean = np.divide(
+        seq1_x_seq2, n_bins, out=np.zeros_like(seq1_x_seq2, dtype=float), where=safe_bins)
+    product_mean = np.divide(
+        np.multiply(sum_seq1, sum_seq2), n_bins_sq, out=np.zeros_like(sum_seq1, dtype=float), where=safe_bins_sq)
+    covar = cross_mean - product_mean
+    denom = std_seq1 * std_seq2
+    x_coef = np.divide(covar, denom, out=np.zeros_like(covar, dtype=float), where=denom > 1e-12)
     x_coef = np.real(x_coef)
-    x_coef = np.nan_to_num(x_coef)
+    x_coef = np.nan_to_num(x_coef, nan=0.0, posinf=0.0, neginf=0.0)
     return x_coef
 
   def rotated_sacs(self, sac, angles):

@@ -71,6 +71,18 @@ parser.add_argument('--rank',
                     default=8,
                     type=int,
                     help='rank K for --RNN_type low_rank')
+parser.add_argument('--low_rank_factor_init',
+                    default='balanced',
+                    choices=['balanced', 'legacy'],
+                    help='low-rank factor initialization for --RNN_type low_rank')
+parser.add_argument('--low_rank_recurrent_gain',
+                    default=1.0,
+                    type=float,
+                    help='gain applied to the realized low-rank recurrent matrix')
+parser.add_argument('--low_rank_input_init_scale',
+                    default=1.0,
+                    type=float,
+                    help='stddev for low-rank input weights')
 parser.add_argument('--activation',
                     default='relu',
                     help='recurrent nonlinearity')

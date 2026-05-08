@@ -677,8 +677,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", default=200, type=int)
     parser.add_argument("--sequence_length", default=20, type=int)
     parser.add_argument("--learning_rate", default=1e-4, type=float)
-    parser.add_argument("--weight_decay", default=1e-4, type=float)
+    parser.add_argument("--weight_decay", default=1e-6, type=float)
     parser.add_argument("--activation", default="relu", choices=["relu", "tanh"])
+    parser.add_argument("--low_rank_factor_init", default="balanced", choices=["balanced", "legacy"],
+                        help="Balanced preserves recurrent variance while giving M/N comparable scales.")
+    parser.add_argument("--low_rank_recurrent_gain", default=1.0, type=float)
+    parser.add_argument("--low_rank_input_init_scale", default=1.0, type=float)
     parser.add_argument("--Np", default=256, type=int)
     parser.add_argument("--Ng", default=4096, type=int)
     parser.add_argument("--place_cell_rf", default=0.12, type=float)

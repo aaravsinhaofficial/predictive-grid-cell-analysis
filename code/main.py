@@ -180,14 +180,26 @@ parser.add_argument('--grid_eval_threshold',
                     default=0.3,
                     type=float,
                     help='gridness cutoff used to count predictive/zero-lag units')
+parser.add_argument('--grid_eval_strong_threshold',
+                    default=0.5,
+                    type=float,
+                    help='higher gridness cutoff used for strong-grid emergence curves')
+parser.add_argument('--grid_eval_min_shift_cm',
+                    default=5.0,
+                    type=float,
+                    help='minimum spatial displacement used to classify predictive/retrospective units')
 parser.add_argument('--grid_eval_max_units',
                     default=256,
                     type=int,
-                    help='max grid units to score during training diagnostics (for speed)')
+                    help='max grid units to score during training diagnostics; <=0 uses all units')
 parser.add_argument('--grid_eval_res',
                     default=20,
                     type=int,
                     help='ratemap resolution for predictive gridness diagnostics')
+parser.add_argument('--save_ratemaps_interval',
+                    default=1,
+                    type=int,
+                    help='save ratemap mosaics every N epochs; <=0 disables per-epoch mosaics')
 
 options = parser.parse_args()
 options.run_ID = generate_run_ID(options)

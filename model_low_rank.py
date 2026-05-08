@@ -63,7 +63,7 @@ class RNN(torch.nn.Module):
         y = pc_outputs
         preds = self.predict(inputs)
         yhat = self.softmax(preds)
-        loss = -(y * torch.log(yhat)).sum(-1).mean()
+        loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
 
         loss += self.weight_decay * ((self.RNN.M ** 2).sum() + (self.RNN.N ** 2).sum())
 

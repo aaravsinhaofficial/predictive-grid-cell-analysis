@@ -63,9 +63,18 @@ class RNN(torch.nn.Module):
         y = pc_outputs
         preds = self.predict(inputs)
         yhat = self.softmax(preds)
-        loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
+        ce_loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
 
-        loss += self.weight_decay * ((self.RNN.M ** 2).sum() + (self.RNN.N ** 2).sum())
+        # Regularize the realized recurrent matrix, not the raw factors. With
+        # the low-rank initialization, factor L2 is enormous and can dominate
+        # the task loss before the network learns path integration.
+        W_rec = self.RNN.M @ self.RNN.N / self.Ng
+        rec_reg_loss = self.weight_decay * (W_rec ** 2).sum()
+        loss = ce_loss + rec_reg_loss
+        self.last_loss_terms = {
+            "ce_loss": float(ce_loss.detach().cpu()),
+            "rec_reg_loss": float(rec_reg_loss.detach().cpu()),
+        }
 
         pred_pos = self.place_cells.get_nearest_cell_pos(preds)
         err = torch.sqrt(((pos - pred_pos) ** 2).sum(-1)).mean()

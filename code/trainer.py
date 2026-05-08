@@ -37,6 +37,7 @@ class Trainer(object):
             print("Saving to: {}".format(self.ckpt_dir))
         self.metrics_path = os.path.join(self.ckpt_dir, "training_metrics.json")
         self.metrics_plot_path = os.path.join(self.ckpt_dir, "training_curves.png")
+        self.emergence_plot_path = os.path.join(self.ckpt_dir, "emergence_over_epochs.png")
 
     def train_step(self, inputs, pc_outputs, pos):
         ''' 
@@ -107,9 +108,10 @@ class Trainer(object):
                 torch.save(self.model.state_dict(), os.path.join(self.ckpt_dir,
                                                                  'most_recent_model.pth'))
 
-                # Save a picture of rate maps
-                save_ratemaps(self.model, self.trajectory_generator,
-                              self.options, step=epoch_idx)
+                ratemap_interval = int(getattr(self.options, "save_ratemaps_interval", 1))
+                if ratemap_interval > 0 and (epoch_idx + 1) % ratemap_interval == 0:
+                    save_ratemaps(self.model, self.trajectory_generator,
+                                  self.options, step=epoch_idx)
 
             # Optional predictive gridness diagnostics
             self._maybe_run_grid_eval(epoch_idx, mean_loss, mean_err)
@@ -145,12 +147,14 @@ class Trainer(object):
             lags = [0] + lags
         n_batches = int(getattr(self.options, "grid_eval_batches", 5))
         threshold = float(getattr(self.options, "grid_eval_threshold", 0.3))
+        strong_threshold = float(getattr(self.options, "grid_eval_strong_threshold", 0.5))
+        min_shift_cm = float(getattr(self.options, "grid_eval_min_shift_cm", 5.0))
         max_units = getattr(self.options, "grid_eval_max_units", None)
         res = int(getattr(self.options, "grid_eval_res", 20))
         shift_mode = getattr(self.options, "grid_eval_shift_mode", "time")
         space_projection = getattr(self.options, "grid_eval_space_projection", "path")
 
-        Ng_eval = self.model.Ng if max_units is None else min(int(max_units), self.model.Ng)
+        Ng_eval = self.model.Ng if max_units is None or int(max_units) <= 0 else min(int(max_units), self.model.Ng)
         idxs = np.arange(Ng_eval)
 
         self.model.eval()
@@ -175,6 +179,11 @@ class Trainer(object):
 
         zero_mask = np.isclose(lags_arr, 0.0)
         zero_scores = scores_60[zero_mask][0] if np.any(zero_mask) else np.full(Ng_eval, np.nan)
+        best_all_idx, best_all_vals = self._nanargmax_with_fill(scores_60)
+        best_all_shift_cm = np.full(Ng_eval, np.nan, dtype=float)
+        valid_all = best_all_idx >= 0
+        best_all_shift_cm[valid_all] = lag_cm[best_all_idx[valid_all]]
+
         positive_mask = lag_cm > 0
         if np.any(positive_mask):
             positive_scores = scores_60[positive_mask]
@@ -193,6 +202,17 @@ class Trainer(object):
         zero_fraction = float(np.mean(zero_scores[valid_zero] >= threshold)) if np.any(valid_zero) else 0.0
         valid_pred = np.isfinite(predictive_scores)
         predictive_fraction = float(np.mean(predictive_scores[valid_pred] >= threshold)) if np.any(valid_pred) else 0.0
+        valid_best = np.isfinite(best_all_vals) & np.isfinite(best_all_shift_cm)
+        grid_mask = valid_best & (best_all_vals >= threshold)
+        strong_grid_mask = valid_best & (best_all_vals >= strong_threshold)
+        predictive_mask = grid_mask & (best_all_shift_cm >= min_shift_cm)
+        retrospective_mask = grid_mask & (best_all_shift_cm <= -min_shift_cm)
+        zero_lag_mask = grid_mask & ~(predictive_mask | retrospective_mask)
+        low_grid_mask = ~grid_mask
+
+        strong_predictive_mask = strong_grid_mask & (best_all_shift_cm >= min_shift_cm)
+
+        denom = float(max(1, Ng_eval))
 
         grid_entry: Dict[str, Any] = {
             "epoch": epoch_idx,
@@ -202,11 +222,30 @@ class Trainer(object):
             "lag_cm": lag_cm.tolist(),
             "cm_per_step": cm_step,
             "gridness_threshold": threshold,
+            "strong_gridness_threshold": strong_threshold,
+            "min_shift_cm": min_shift_cm,
+            "total_units_evaluated": int(Ng_eval),
+            "grid_cell_count": int(np.sum(grid_mask)),
+            "predictive_cell_count": int(np.sum(predictive_mask)),
+            "retrospective_cell_count": int(np.sum(retrospective_mask)),
+            "zero_lag_cell_count": int(np.sum(zero_lag_mask)),
+            "low_grid_cell_count": int(np.sum(low_grid_mask)),
+            "strong_grid_cell_count": int(np.sum(strong_grid_mask)),
+            "strong_predictive_cell_count": int(np.sum(strong_predictive_mask)),
+            "grid_cell_fraction": float(np.sum(grid_mask) / denom),
+            "predictive_cell_fraction": float(np.sum(predictive_mask) / denom),
+            "retrospective_cell_fraction": float(np.sum(retrospective_mask) / denom),
+            "zero_lag_cell_fraction": float(np.sum(zero_lag_mask) / denom),
+            "low_grid_cell_fraction": float(np.sum(low_grid_mask) / denom),
+            "strong_grid_cell_fraction": float(np.sum(strong_grid_mask) / denom),
+            "strong_predictive_cell_fraction": float(np.sum(strong_predictive_mask) / denom),
             "zero_grid_fraction": zero_fraction,
             "predictive_grid_fraction": predictive_fraction,
             "mean_zero_gridness": float(np.nanmean(zero_scores)),
             "mean_best_positive_gridness": float(np.nanmean(predictive_scores)),
-            "median_best_shift_cm": float(np.nanmedian(best_shift_cm)) if np.isfinite(best_shift_cm).any() else None,
+            "mean_best_gridness": float(np.nanmean(best_all_vals)),
+            "median_best_shift_cm": float(np.nanmedian(best_all_shift_cm)) if np.isfinite(best_all_shift_cm).any() else None,
+            "median_best_positive_shift_cm": float(np.nanmedian(best_shift_cm)) if np.isfinite(best_shift_cm).any() else None,
             "mean_loss": mean_loss,
             "mean_err": mean_err,
         }
@@ -248,4 +287,34 @@ class Trainer(object):
         ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
         fig.tight_layout()
         fig.savefig(self.metrics_plot_path, dpi=200)
+        plt.close(fig)
+        self._plot_emergence_curves()
+
+    def _plot_emergence_curves(self) -> None:
+        if not self.grid_history:
+            return
+
+        ge = np.array([g["epoch"] for g in self.grid_history], dtype=float)
+
+        def values(key: str) -> np.ndarray:
+            return 100.0 * np.array([float(g.get(key, 0.0)) for g in self.grid_history], dtype=float)
+
+        fig, ax = plt.subplots(figsize=(8.2, 4.8))
+        curves = [
+            ("Grid cells", values("grid_cell_fraction"), "#1f77b4", "-"),
+            ("Predictive", values("predictive_cell_fraction"), "#2ca02c", "-"),
+            ("Retrospective", values("retrospective_cell_fraction"), "#d62728", "-"),
+            ("Zero-lag grid", values("zero_lag_cell_fraction"), "#9467bd", ":"),
+            ("Strong grid", values("strong_grid_cell_fraction"), "#111111", "--"),
+        ]
+        for label, y, color, linestyle in curves:
+            ax.plot(ge, y, label=label, color=color, linestyle=linestyle, lw=2.0)
+
+        ax.set_xlabel("epoch")
+        ax.set_ylabel("percent of evaluated units")
+        ax.set_title("Emergent spatial grid coding over training")
+        ax.grid(alpha=0.25)
+        ax.legend(frameon=False, ncol=2)
+        fig.tight_layout()
+        fig.savefig(self.emergence_plot_path, dpi=200)
         plt.close(fig)

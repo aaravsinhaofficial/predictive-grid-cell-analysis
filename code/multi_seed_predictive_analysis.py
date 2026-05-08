@@ -44,6 +44,14 @@ COLORS = {
 }
 
 
+def checkpoint_analysis_dir(ckpt_path: str, output_subdir: Optional[str] = None) -> Path:
+    """Return the analysis directory for a checkpoint, optionally nested in a subdir."""
+    out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    if output_subdir:
+        out_dir = out_dir / output_subdir
+    return out_dir
+
+
 def get_class_indices(classes: Optional[Dict[str, np.ndarray]], *keys: str) -> np.ndarray:
     """Return the first matching class array (or empty)."""
     if not classes:
@@ -533,7 +541,7 @@ def analyse_checkpoint(ckpt_path: str,
     valid_best = best_idx >= 0
     best_cm[valid_best] = lag_cm[best_idx[valid_best]]
 
-    out_dir = str(analysis_dir_for_checkpoint(Path(ckpt_path)))
+    out_dir = str(checkpoint_analysis_dir(ckpt_path, getattr(args, "output_subdir", None)))
     os.makedirs(out_dir, exist_ok=True)
 
     scatter_zero_vs_shift(
@@ -749,6 +757,8 @@ def main():
                         help='When --shift_mode space, spacing between evaluated shifts in cm.')
     parser.add_argument('--device', default=None,
                         help='Override device (cpu/cuda). Defaults to best available.')
+    parser.add_argument('--output_subdir', default=None,
+                        help='Optional subdirectory under the checkpoint analysis folder for mode-specific outputs.')
     parser.add_argument('--ablation_batches', default=8, type=int,
                         help='Number of cached batches for ablation tests (0 disables).')
     parser.add_argument('--ablation_random_trials', default=5, type=int,

@@ -3,11 +3,26 @@ from __future__ import division
 from __future__ import print_function
 
 import math
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal
 import scipy.ndimage as ndimage
 import scipy.stats
+
+
+def _format_duration(seconds):
+  seconds = float(seconds)
+  if not np.isfinite(seconds) or seconds < 0:
+    return '?'
+  total_seconds = int(round(seconds))
+  minutes, secs = divmod(total_seconds, 60)
+  hours, minutes = divmod(minutes, 60)
+  if hours > 0:
+    return '%dh %02dm %02ds' % (hours, minutes, secs)
+  if minutes > 0:
+    return '%dm %02ds' % (minutes, secs)
+  return '%ds' % secs
 
 
 def circle_mask(size, radius, in_val=1.0, out_val=0.0):
@@ -507,7 +522,7 @@ class GridScorer(object):
 
     return np.asarray(scores_60), np.asarray(scores_90)
 
-  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path'):
+  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path', progress=False, progress_label=None, progress_every=50):
     """Predictive gridness across temporal or spatial shifts.
 
     Computes gridness (60° and 90°) for activations aligned to future/past
@@ -526,6 +541,9 @@ class GridScorer(object):
       shift_mode: 'time' or 'space'.
       periodic: Whether to wrap interpolated spatial shifts to the box.
       space_projection: In spatial mode, 'path' or 'heading'.
+      progress: If True, print progress updates while scoring many units.
+      progress_label: Optional label for progress output.
+      progress_every: Number of units between progress updates.
 
     Returns:
       If activations is 2D or unit_idx is provided: (scores_60, scores_90)
@@ -562,6 +580,13 @@ class GridScorer(object):
       # All units
       scores_60 = np.zeros((len(lags), Ng))
       scores_90 = np.zeros((len(lags), Ng))
+      progress_step = max(1, int(progress_every))
+      progress_name = progress_label or 'predictive_grid_scores'
+      start_time = None
+      if progress:
+        start_time = time.time()
+        print('[%s] Scoring %d units across %d shifts (%s mode).' % (
+            progress_name, Ng, len(lags), shift_mode), flush=True)
       for u in range(Ng):
         s60, s90 = self._predictive_scores_single(
             xs,
@@ -574,6 +599,21 @@ class GridScorer(object):
             space_projection=space_projection)
         scores_60[:, u] = s60
         scores_90[:, u] = s90
+        if progress and ((u + 1) == 1 or (u + 1) % progress_step == 0 or (u + 1) == Ng):
+          elapsed = time.time() - start_time
+          units_done = float(u + 1)
+          rate = units_done / elapsed if elapsed > 0 else np.nan
+          remaining = (Ng - units_done) / rate if np.isfinite(rate) and rate > 0 else np.nan
+          print('[%s] %d/%d units (%.1f%%) | elapsed %s | eta %s' % (
+              progress_name,
+              u + 1,
+              Ng,
+              100.0 * units_done / max(1.0, float(Ng)),
+              _format_duration(elapsed),
+              _format_duration(remaining)), flush=True)
+      if progress:
+        print('[%s] Completed in %s.' % (
+            progress_name, _format_duration(time.time() - start_time)), flush=True)
       return scores_60, scores_90
     else:
       raise ValueError('activations must have shape [T,B] or [T,B,Ng]')

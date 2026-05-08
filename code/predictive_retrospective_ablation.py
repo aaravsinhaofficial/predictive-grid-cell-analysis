@@ -6,6 +6,8 @@ and near-zero/"normal" grid cells) and evaluates every combination of class abla
 per checkpoint. Results are averaged across seeds and plotted as summary figures.
 """
 
+from __future__ import annotations
+
 import argparse
 import copy
 import glob
@@ -27,6 +29,7 @@ from trajectory_generator import TrajectoryGenerator
 from path_utils import analysis_dir_for_checkpoint, analysis_summary_dir, model_name_from_checkpoint
 from multi_seed_predictive_analysis import (
     build_options,
+    checkpoint_analysis_dir,
     infer_dims_from_state,
     zero_unit_weights_in_place,
     collect_eval_batches,
@@ -73,9 +76,9 @@ def extract_state(raw: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     raise TypeError(f"Unsupported checkpoint format: {type(raw)}")
 
 
-def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
+def load_gridness_data(ckpt_path: str, analysis_subdir: str | None = None) -> Dict[str, np.ndarray]:
     """Load cached gridness data; raises if missing."""
-    out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    out_dir = checkpoint_analysis_dir(ckpt_path, analysis_subdir)
     grid_path = out_dir / "gridness_data.npz"
     if not os.path.exists(grid_path):
         raise FileNotFoundError(
@@ -197,7 +200,7 @@ def run_ablation_for_checkpoint(
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     options = build_options(args, (Ng, Np, velocity_dim), device, ckpt_path)
 
-    grid_data = load_gridness_data(ckpt_path)
+    grid_data = load_gridness_data(ckpt_path, getattr(args, "analysis_subdir", None))
     class_indices = classify_from_scores(grid_data, args.min_shift_cm, args.gridness_threshold)
     score_vectors = class_score_vectors(grid_data, args.min_shift_cm)
     scores_mat = np.asarray(grid_data["scores_60"], dtype=float)
@@ -875,6 +878,11 @@ def main():
         default=None,
         help="Directory to store figures/results (defaults to analysis_outputs/<model>/summary/predictive_retrospective_ablation).",
     )
+    parser.add_argument(
+        "--analysis_subdir",
+        default=None,
+        help="Optional subdirectory under each checkpoint analysis folder from which to load gridness_data.npz.",
+    )
     parser.add_argument("--traj_speed_scale", default=1.0, type=float,
                         help="Multiplier on the Rayleigh speed scale (1.0 = default).")
     parser.add_argument("--traj_speed_max", default=None, type=float,
@@ -933,7 +941,12 @@ def main():
 
     if args.output_dir is None:
         model_name = model_name_from_checkpoint(Path(checkpoints[0]))
-        args.output_dir = str(analysis_summary_dir(model_name, "predictive_retrospective_ablation"))
+        summary_name = "predictive_retrospective_ablation"
+        if args.analysis_subdir:
+            safe_label = re.sub(r"[^A-Za-z0-9._-]+", "_", str(args.analysis_subdir)).strip("_")
+            if safe_label:
+                summary_name = f"{summary_name}_{safe_label}"
+        args.output_dir = str(analysis_summary_dir(model_name, summary_name))
 
     os.makedirs(args.output_dir, exist_ok=True)
     save_results_json(results, percentiles, count_targets, os.path.join(args.output_dir, "results.json"))

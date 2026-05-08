@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import time
 from matplotlib import pyplot as plt
 
 import scipy
@@ -10,6 +11,20 @@ from typing import List, Optional, Tuple
 
 from scores import GridScorer
 from shift_utils import shift_axis_label
+
+
+def _format_duration(seconds):
+    seconds = float(seconds)
+    if not np.isfinite(seconds) or seconds < 0:
+        return "?"
+    total_seconds = int(round(seconds))
+    minutes, secs = divmod(total_seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        return f"{hours}h {minutes:02d}m {secs:02d}s"
+    if minutes > 0:
+        return f"{minutes}m {secs:02d}s"
+    return f"{secs}s"
 
 
 def concat_images(images, image_width, spacer_size):
@@ -77,9 +92,16 @@ def compute_ratemaps(model, trajectory_generator, options, res=20, n_avg=None, N
     if not n_avg:
         n_avg = 1000 // options.sequence_length
 
-    if not np.any(idxs):
-        idxs = np.arange(Ng)
-    idxs = idxs[:Ng]
+    model_ng = int(getattr(model, "Ng", Ng))
+    if idxs is None:
+        idxs = np.arange(min(int(Ng), model_ng))
+    else:
+        idxs = np.asarray(idxs, dtype=int)
+        idxs = idxs[(idxs >= 0) & (idxs < model_ng)]
+        idxs = idxs[: min(int(Ng), idxs.size)]
+    Ng = int(idxs.size)
+    if Ng == 0:
+        raise ValueError("No valid unit indices available for ratemap computation.")
 
     g = np.zeros([n_avg, options.batch_size * options.sequence_length, Ng])
     pos = np.zeros([n_avg, options.batch_size * options.sequence_length, 2])
@@ -156,7 +178,16 @@ def save_autocorr(sess, model, save_name, trajectory_generator, step, flags):
                 imdir, filename)
 
 
-def collect_sequences(model, trajectory_generator, options, n_batches: int = 10, Ng: Optional[int] = None, idxs: Optional[np.ndarray] = None):
+def collect_sequences(
+    model,
+    trajectory_generator,
+    options,
+    n_batches: int = 10,
+    Ng: Optional[int] = None,
+    idxs: Optional[np.ndarray] = None,
+    progress: bool = False,
+    progress_label: Optional[str] = None,
+):
     """Collects multiple batches of sequences for predictive analysis.
 
     Returns:
@@ -172,7 +203,11 @@ def collect_sequences(model, trajectory_generator, options, n_batches: int = 10,
 
     xs_list, ys_list, g_list = [], [], []
     T_ref = None
-    for _ in range(n_batches):
+    label = progress_label or "collect_sequences"
+    start_time = time.time() if progress else None
+    if progress:
+        print(f"[{label}] Collecting {n_batches} trajectory batches.", flush=True)
+    for batch_idx in range(n_batches):
         inputs, pos_batch, _ = trajectory_generator.get_test_batch()
         with np.errstate(all='ignore'):
             g_batch = model.g(inputs).detach().cpu().numpy()  # [T,B,Ng]
@@ -188,10 +223,20 @@ def collect_sequences(model, trajectory_generator, options, n_batches: int = 10,
         xs_list.append(pos_np[:, :, 0])
         ys_list.append(pos_np[:, :, 1])
         g_list.append(g_batch[:, :, idxs])
+        if progress:
+            elapsed = time.time() - start_time
+            print(
+                f"[{label}] {batch_idx + 1}/{n_batches} batches "
+                f"({100.0 * float(batch_idx + 1) / max(1.0, float(n_batches)):.1f}%) "
+                f"| elapsed {_format_duration(elapsed)}",
+                flush=True,
+            )
 
     xs = np.concatenate(xs_list, axis=1)
     ys = np.concatenate(ys_list, axis=1)
     activations = np.concatenate(g_list, axis=1)
+    if progress:
+        print(f"[{label}] Completed in {_format_duration(time.time() - start_time)}.", flush=True)
     return xs, ys, activations
 
 

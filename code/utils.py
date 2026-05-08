@@ -20,6 +20,8 @@ def generate_run_ID(options):
         'lr', str(options.learning_rate),
         'weight_decay', str(options.weight_decay),
         ]
+    if str(getattr(options, 'RNN_type', '')).lower() == 'low_rank':
+        params.extend(['rank', str(getattr(options, 'rank', 'unknown'))])
     separator = '_'
     run_ID = separator.join(params)
     run_ID = run_ID.replace('.', '')

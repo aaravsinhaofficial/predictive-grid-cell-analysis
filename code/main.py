@@ -1,6 +1,8 @@
 import numpy as np
 #import tensorflow as tf
 import torch.cuda
+import os
+import sys
 
 #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
@@ -8,7 +10,13 @@ from utils import generate_run_ID
 from utils import load_example_npy_weights_into_model
 from place_cells import PlaceCells
 from trajectory_generator import TrajectoryGenerator
-from model import RNN
+from model import RNN as FullRankRNN
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from model_low_rank import RNN as LowRankRNN
 from trainer import Trainer
 from visualize import save_ratemaps
 
@@ -57,7 +65,12 @@ parser.add_argument('--surround_scale',
                     help='if DoG, ratio of sigma2^2 to sigma1^2')
 parser.add_argument('--RNN_type',
                     default='RNN',
-                    help='RNN or LSTM')
+                    choices=['RNN', 'low_rank', 'LSTM'],
+                    help='RNN, low_rank, or LSTM')
+parser.add_argument('--rank',
+                    default=8,
+                    type=int,
+                    help='rank K for --RNN_type low_rank')
 parser.add_argument('--activation',
                     default='relu',
                     help='recurrent nonlinearity')
@@ -183,7 +196,9 @@ print(f'Using device: {options.device}')
 
 place_cells = PlaceCells(options)
 if options.RNN_type == 'RNN':
-    model = RNN(options, place_cells)
+    model = FullRankRNN(options, place_cells)
+elif options.RNN_type == 'low_rank':
+    model = LowRankRNN(options, place_cells)
 elif options.RNN_type == 'LSTM':
     # model = LSTM(options, place_cells)
     raise NotImplementedError

@@ -1,0 +1,15 @@
+shift_mode: time
+space_projection: path
+shift_values: [-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+cm_per_step: 1.9155105352401733
+lag_cm: [-9.577552676200867, -7.662042140960693, -5.74653160572052, -3.8310210704803467, -1.9155105352401733, 0.0, 1.9155105352401733, 3.8310210704803467, 5.74653160572052, 7.662042140960693, 9.577552676200867]
+zero_scores_mean: 0.23648772346861904
+shifted_scores_mean: 0.2792314004763949
+num_predictive: 1
+num_phase_precession: 1
+num_phase_locked: 3
+num_low_grid_units: 3
+preferred_shift_mean_predictive_cm: 9.577552676200867
+preferred_shift_median_predictive_cm: 9.577552676200867
+preferred_shift_mean_retrospective_cm: -7.662042140960693
+preferred_shift_median_retrospective_cm: -7.662042140960693

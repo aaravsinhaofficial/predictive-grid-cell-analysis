@@ -1,0 +1,274 @@
+{
+  "checkpoint_path": "Seed 0(trained advanced)/most_recent_model.pth",
+  "output_dir": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096",
+  "settings": {
+    "batch_size": 200,
+    "sequence_length": 40,
+    "n_batches": 8,
+    "Ng_use": 4096,
+    "gridness_threshold": 0.2,
+    "min_shift_cm": 5.0,
+    "max_lag": 10,
+    "max_shift_cm": 20.0,
+    "shift_step_cm": 1.0,
+    "space_projection": "path",
+    "trajectory_style": "random_walk",
+    "trajectory_fixed_speed": null,
+    "seed": 0
+  },
+  "cm_per_step": 1.9768681526184082,
+  "tests": {
+    "profile_correlation_all_units": {
+      "n_valid_units": 3163,
+      "median": 0.9927951529731731,
+      "mean": 0.9637143336540243
+    },
+    "profile_correlation_directional_units": {
+      "n_valid_units": 1512,
+      "median": 0.9942898771295732,
+      "mean": 0.9788244983065756,
+      "bootstrap_ci_95": [
+        0.9937399577709788,
+        0.994746092620274
+      ],
+      "fraction_positive": 1.0,
+      "binomial_p_value_gt_zero": 0.0
+    },
+    "best_shifted_score_spearman": {
+      "n_units": 2078,
+      "rho": 0.9924304060980425,
+      "permutation_p_value": 0.00024993751562109475
+    },
+    "preferred_shift_spearman": {
+      "n_units": 1512,
+      "rho": 0.9322465998377115,
+      "permutation_p_value": 0.00024993751562109475,
+      "sign_agreement": 0.968915343915344
+    },
+    "class_agreement": {
+      "accuracy": 0.946044921875,
+      "cohen_kappa": 0.9187003421404909,
+      "permutation_p_value": 0.00024993751562109475,
+      "confusion_matrix": [
+        [
+          930,
+          10,
+          21,
+          1
+        ],
+        [
+          9,
+          368,
+          20,
+          5
+        ],
+        [
+          84,
+          48,
+          587,
+          2
+        ],
+        [
+          12,
+          4,
+          5,
+          1990
+        ]
+      ],
+      "labels": [
+        "predictive",
+        "retrospective",
+        "normal",
+        "non_grid"
+      ]
+    },
+    "predictive_overlap": {
+      "temporal_count": 962,
+      "spatial_count": 1035,
+      "overlap_count": 930,
+      "jaccard": 0.8716026241799437,
+      "hypergeom_p_value": 0.0
+    },
+    "retrospective_overlap": {
+      "temporal_count": 402,
+      "spatial_count": 430,
+      "overlap_count": 368,
+      "jaccard": 0.7931034482758621,
+      "hypergeom_p_value": 0.0
+    }
+  },
+  "class_counts": {
+    "temporal": {
+      "predictive": 962,
+      "retrospective": 402,
+      "normal": 721
+    },
+    "spatial": {
+      "predictive": 1035,
+      "retrospective": 430,
+      "normal": 633
+    }
+  },
+  "selected_rnn_units": {
+    "predictive": [
+      {
+        "unit_index": 1150,
+        "temporal_label": "predictive",
+        "spatial_label": "normal",
+        "temporal_best_cm": 7.907472610473633,
+        "temporal_best_score": 1.4816143295606223,
+        "temporal_best_lag": 4,
+        "spatial_best_cm": 7.0,
+        "spatial_best_score": 1.4797520177403345,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/01_predictive_unit_1150.png"
+      },
+      {
+        "unit_index": 2686,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 17.791813373565674,
+        "temporal_best_score": 1.4310192206859003,
+        "temporal_best_lag": 9,
+        "spatial_best_cm": 17.0,
+        "spatial_best_score": 1.422490611296955,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/02_predictive_unit_2686.png"
+      },
+      {
+        "unit_index": 2418,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 19.768681526184082,
+        "temporal_best_score": 1.4420005006697592,
+        "temporal_best_lag": 10,
+        "spatial_best_cm": 20.0,
+        "spatial_best_score": 1.3908668789515781,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/03_predictive_unit_2418.png"
+      },
+      {
+        "unit_index": 284,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 19.768681526184082,
+        "temporal_best_score": 1.3631491571047443,
+        "temporal_best_lag": 10,
+        "spatial_best_cm": 20.0,
+        "spatial_best_score": 1.3624843844437604,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/04_predictive_unit_284.png"
+      },
+      {
+        "unit_index": 1068,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 19.768681526184082,
+        "temporal_best_score": 1.3649169144062063,
+        "temporal_best_lag": 10,
+        "spatial_best_cm": 20.0,
+        "spatial_best_score": 1.3582027900003193,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/05_predictive_unit_1068.png"
+      },
+      {
+        "unit_index": 39,
+        "temporal_label": "normal",
+        "spatial_label": "normal",
+        "temporal_best_cm": 5.930604457855225,
+        "temporal_best_score": 1.320920572177749,
+        "temporal_best_lag": 3,
+        "spatial_best_cm": 5.0,
+        "spatial_best_score": 1.3279211518453191,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/06_predictive_unit_39.png"
+      },
+      {
+        "unit_index": 977,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 13.838077068328857,
+        "temporal_best_score": 1.321150197181229,
+        "temporal_best_lag": 7,
+        "spatial_best_cm": 15.0,
+        "spatial_best_score": 1.3266180736316255,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/07_predictive_unit_977.png"
+      }
+    ],
+    "retrospective": [
+      {
+        "unit_index": 2360,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -19.768681526184082,
+        "temporal_best_score": 1.5730632760656214,
+        "temporal_best_lag": -10,
+        "spatial_best_cm": -20.0,
+        "spatial_best_score": 1.5826803644996636,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/08_retrospective_unit_2360.png"
+      },
+      {
+        "unit_index": 1150,
+        "temporal_label": "predictive",
+        "spatial_label": "normal",
+        "temporal_best_cm": -5.930604457855225,
+        "temporal_best_score": 1.4479655211265454,
+        "temporal_best_lag": -3,
+        "spatial_best_cm": -5.0,
+        "spatial_best_score": 1.457874029874449,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/09_retrospective_unit_1150.png"
+      },
+      {
+        "unit_index": 810,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -19.768681526184082,
+        "temporal_best_score": 1.3818742291729254,
+        "temporal_best_lag": -10,
+        "spatial_best_cm": -20.0,
+        "spatial_best_score": 1.3580377415475735,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/10_retrospective_unit_810.png"
+      },
+      {
+        "unit_index": 3796,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -13.838077068328857,
+        "temporal_best_score": 1.353676559074389,
+        "temporal_best_lag": -7,
+        "spatial_best_cm": -15.0,
+        "spatial_best_score": 1.3560532418267714,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/11_retrospective_unit_3796.png"
+      },
+      {
+        "unit_index": 2876,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -19.768681526184082,
+        "temporal_best_score": 1.3304447122774081,
+        "temporal_best_lag": -10,
+        "spatial_best_cm": -20.0,
+        "spatial_best_score": 1.3058975514481186,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/12_retrospective_unit_2876.png"
+      },
+      {
+        "unit_index": 3860,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -9.884340763092041,
+        "temporal_best_score": 1.3101496100195074,
+        "temporal_best_lag": -5,
+        "spatial_best_cm": -12.0,
+        "spatial_best_score": 1.3002879169818777,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/13_retrospective_unit_3860.png"
+      },
+      {
+        "unit_index": 39,
+        "temporal_label": "normal",
+        "spatial_label": "normal",
+        "temporal_best_cm": -5.930604457855225,
+        "temporal_best_score": 1.2883119168997434,
+        "temporal_best_lag": -3,
+        "spatial_best_cm": -5.0,
+        "spatial_best_score": 1.2957604702188168,
+        "individual_png": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs/14_retrospective_unit_39.png"
+      }
+    ]
+  },
+  "individual_rnn_example_dir": "analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency_4096/rnn_exemplar_pairs",
+  "neural_data_status": "No neural recording dataset was found in this workspace, so neural-vs-RNN side-by-side plots were not generated."
+}

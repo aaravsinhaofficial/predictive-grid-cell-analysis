@@ -1,0 +1,159 @@
+{
+  "checkpoint_path": "Seed 0(trained advanced)/most_recent_model.pth",
+  "output_dir": "/Users/aaravsinha/predictive-grid-cell-analysis/analysis_outputs/Seed 0(trained advanced)/shift_mode_consistency",
+  "settings": {
+    "batch_size": 200,
+    "sequence_length": 40,
+    "n_batches": 8,
+    "Ng_use": 256,
+    "gridness_threshold": 0.2,
+    "min_shift_cm": 5.0,
+    "max_lag": 10,
+    "max_shift_cm": 20.0,
+    "shift_step_cm": 1.0,
+    "space_projection": "path",
+    "trajectory_style": "random_walk",
+    "trajectory_fixed_speed": null,
+    "seed": 0
+  },
+  "cm_per_step": 1.9768681526184082,
+  "tests": {
+    "profile_correlation_all_units": {
+      "n_valid_units": 194,
+      "median": 0.9909364250369286,
+      "mean": 0.9606755229699918
+    },
+    "profile_correlation_directional_units": {
+      "n_valid_units": 95,
+      "median": 0.9927705260751619,
+      "mean": 0.9733304758758033,
+      "bootstrap_ci_95": [
+        0.988361287278983,
+        0.9953390250084582
+      ],
+      "fraction_positive": 1.0,
+      "binomial_p_value_gt_zero": 2.524354896707238e-29
+    },
+    "best_shifted_score_spearman": {
+      "n_units": 128,
+      "rho": 0.9932017945431239,
+      "permutation_p_value": 0.00024993751562109475
+    },
+    "preferred_shift_spearman": {
+      "n_units": 95,
+      "rho": 0.9395965248911226,
+      "permutation_p_value": 0.00024993751562109475,
+      "sign_agreement": 0.9789473684210527
+    },
+    "class_agreement": {
+      "accuracy": 0.96484375,
+      "cohen_kappa": 0.9467800055437494,
+      "permutation_p_value": 0.00024993751562109475,
+      "confusion_matrix": [
+        [
+          61,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          25,
+          0,
+          0
+        ],
+        [
+          5,
+          2,
+          35,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          126
+        ]
+      ],
+      "labels": [
+        "predictive",
+        "retrospective",
+        "normal",
+        "non_grid"
+      ]
+    },
+    "predictive_overlap": {
+      "temporal_count": 62,
+      "spatial_count": 67,
+      "overlap_count": 61,
+      "jaccard": 0.8970588235294118,
+      "hypergeom_p_value": 9.201968306194039e-51
+    },
+    "retrospective_overlap": {
+      "temporal_count": 26,
+      "spatial_count": 27,
+      "overlap_count": 25,
+      "jaccard": 0.8928571428571429,
+      "hypergeom_p_value": 2.9328854064197967e-31
+    }
+  },
+  "class_counts": {
+    "temporal": {
+      "predictive": 62,
+      "retrospective": 26,
+      "normal": 42
+    },
+    "spatial": {
+      "predictive": 67,
+      "retrospective": 27,
+      "normal": 36
+    }
+  },
+  "selected_rnn_units": {
+    "predictive": [
+      {
+        "unit_index": 188,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 13.838077068328857,
+        "temporal_best_score": 1.2174934674524602,
+        "temporal_best_lag": 7,
+        "spatial_best_cm": 15.0,
+        "spatial_best_score": 1.2171363423848165
+      },
+      {
+        "unit_index": 197,
+        "temporal_label": "predictive",
+        "spatial_label": "predictive",
+        "temporal_best_cm": 15.814945220947266,
+        "temporal_best_score": 1.1945505790742157,
+        "temporal_best_lag": 8,
+        "spatial_best_cm": 16.0,
+        "spatial_best_score": 1.1828693921069267
+      }
+    ],
+    "retrospective": [
+      {
+        "unit_index": 163,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -17.791813373565674,
+        "temporal_best_score": 1.0099253460218125,
+        "temporal_best_lag": -9,
+        "spatial_best_cm": -18.0,
+        "spatial_best_score": 1.052801956139087
+      },
+      {
+        "unit_index": 25,
+        "temporal_label": "retrospective",
+        "spatial_label": "retrospective",
+        "temporal_best_cm": -19.768681526184082,
+        "temporal_best_score": 0.879049450567564,
+        "temporal_best_lag": -10,
+        "spatial_best_cm": -20.0,
+        "spatial_best_score": 0.8798274198372866
+      }
+    ]
+  },
+  "neural_data_status": "No neural recording dataset was found in this workspace, so neural-vs-RNN side-by-side plots were not generated."
+}

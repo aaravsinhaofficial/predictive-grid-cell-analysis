@@ -25,6 +25,7 @@ import logging
 import math
 import os
 import sys
+import tempfile
 import time
 import warnings
 from dataclasses import dataclass
@@ -32,10 +33,18 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/future_split_mplconfig")
-os.environ.setdefault("NUMBA_CACHE_DIR", "/private/tmp/future_split_numba_cache")
-Path(os.environ["MPLCONFIGDIR"]).mkdir(parents=True, exist_ok=True)
-Path(os.environ["NUMBA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
+_CACHE_ROOT = Path(os.environ.get("FUTURE_SPLIT_CACHE_DIR", tempfile.gettempdir()))
+for _env_key, _dirname in (
+    ("MPLCONFIGDIR", "future_split_mplconfig"),
+    ("NUMBA_CACHE_DIR", "future_split_numba_cache"),
+):
+    os.environ.setdefault(_env_key, str(_CACHE_ROOT / _dirname))
+    try:
+        Path(os.environ[_env_key]).mkdir(parents=True, exist_ok=True)
+    except OSError:
+        fallback = Path.cwd() / ".future_split_cache" / _dirname
+        fallback.mkdir(parents=True, exist_ok=True)
+        os.environ[_env_key] = str(fallback)
 
 import numpy as np
 import torch

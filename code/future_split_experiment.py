@@ -1983,8 +1983,72 @@ def run_plot_crossing(args) -> Path:
     lo, hi = bootstrap_ci(diffs, rng, n_boot=2000)
     mean_diff = float(np.mean(diffs)) if diffs.size else float("nan")
 
+    distribution_png = None
     diff_png = None
     scatter_png = None
+    finite_pred = pred[np.isfinite(pred)]
+    finite_std = std[np.isfinite(std)]
+    if finite_pred.size and finite_std.size:
+        combined = np.concatenate([finite_std, finite_pred])
+        bins = np.linspace(float(np.min(combined)), float(np.max(combined)), max(5, int(args.hist_bins)))
+        if np.allclose(bins[0], bins[-1]):
+            bins = np.linspace(bins[0] - 0.05, bins[0] + 0.05, max(5, int(args.hist_bins)))
+
+        fig, axes = plt.subplots(
+            1,
+            2,
+            figsize=(10.5, 4.8),
+            gridspec_kw={"width_ratios": [1.45, 0.8]},
+        )
+        ax = axes[0]
+        ax.hist(
+            finite_std,
+            bins=bins,
+            density=True,
+            alpha=0.52,
+            color=colors["standard_grid"],
+            edgecolor="white",
+            linewidth=0.5,
+            label=f"Zero-lag grid mean={np.mean(finite_std):.3f}",
+        )
+        ax.hist(
+            finite_pred,
+            bins=bins,
+            density=True,
+            alpha=0.52,
+            color=colors["predictive"],
+            edgecolor="white",
+            linewidth=0.5,
+            label=f"Predictive mean={np.mean(finite_pred):.3f}",
+        )
+        ax.axvline(float(np.mean(finite_std)), color=colors["standard_grid"], linewidth=1.8)
+        ax.axvline(float(np.mean(finite_pred)), color=colors["predictive"], linewidth=1.8)
+        ax.set_xlabel("Population-vector correlation at crossing")
+        ax.set_ylabel("Density")
+        ax.set_title("Raw correlation distributions")
+        ax.legend(frameon=True)
+
+        ax = axes[1]
+        parts = ax.violinplot([finite_std, finite_pred], showmeans=True, showmedians=True, widths=0.72)
+        for body, color in zip(parts["bodies"], [colors["standard_grid"], colors["predictive"]]):
+            body.set_facecolor(color)
+            body.set_edgecolor("black")
+            body.set_alpha(0.65)
+            body.set_linewidth(0.7)
+        for key in ("cmeans", "cmedians", "cbars", "cmins", "cmaxes"):
+            if key in parts:
+                parts[key].set_color("#222222")
+                parts[key].set_linewidth(1.0)
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(["Zero-lag\ngrid", "Predictive"])
+        ax.set_ylabel("Correlation")
+        ax.set_title("Matched-pair values")
+        fig.suptitle(args.title or "X-crossing GC vs PGC similarity", y=1.02)
+        fig.tight_layout()
+        distribution_png = out_dir / "crossing_gc_pgc_correlation_distributions.png"
+        fig.savefig(distribution_png, dpi=int(args.dpi), bbox_inches="tight")
+        plt.close(fig)
+
     if diffs.size:
         fig, ax = plt.subplots(figsize=(7.0, 4.6))
         ax.hist(diffs, bins=int(args.hist_bins), color="#5c677d", alpha=0.82, edgecolor="white")
@@ -2023,6 +2087,7 @@ def run_plot_crossing(args) -> Path:
     plot_summary = {
         "crossing_dir": str(crossing_dir),
         "summary_plot": str(summary_png),
+        "distribution_plot": str(distribution_png) if distribution_png else None,
         "difference_plot": str(diff_png) if diff_png else None,
         "scatter_plot": str(scatter_png) if scatter_png else None,
         "n_matched_pairs": int(diffs.size),

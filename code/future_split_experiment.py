@@ -12,6 +12,8 @@ Subcommands:
              open-field trajectories.
   decode     Decode future route, position, and torus phase from matched
              trials and controls.
+  crossing   Compare predictive and standard-grid population similarity at
+             matched X-crossings with different travel directions.
   intervene  Ablate/scramble/swap matched unit groups before the branch.
   smoke      Tiny CPU-only end-to-end smoke test.
 """
@@ -538,6 +540,18 @@ class ForkBatch:
     task: str = "binary_fork"
 
 
+@dataclass
+class CrossingBatch:
+    inputs: Tuple[torch.Tensor, torch.Tensor]
+    positions_np: np.ndarray
+    velocity_np: np.ndarray
+    headings_np: np.ndarray
+    pair_ids: np.ndarray
+    angle_sep_deg: np.ndarray
+    crossing_step: int
+    future_horizon: int
+
+
 def task_cue_steps(options: SimpleNamespace) -> int:
     return int(getattr(options, "cue_steps", getattr(options, "fork_cue_steps", 4)))
 
@@ -866,6 +880,84 @@ def generate_open_field_batch(
         cue_np=cue,
         task="open_field",
     )
+
+
+def generate_crossing_batch(
+    options: SimpleNamespace,
+    place_cells: PlaceCells,
+    batch_size: int,
+    rng: np.random.Generator,
+    crossing_step: Optional[int] = None,
+    min_angle_deg: float = 30.0,
+    max_angle_deg: float = 150.0,
+    line_extent: float = 0.75,
+    future_horizon: Optional[int] = None,
+) -> CrossingBatch:
+    """Generate paired straight-line trajectories that cross as an X."""
+    B = max(2, int(batch_size))
+    if B % 2:
+        B -= 1
+    pair_count = B // 2
+    T = int(options.sequence_length)
+    cross_t = int(crossing_step if crossing_step is not None else T // 2)
+    cross_t = int(np.clip(cross_t, 1, T - 2))
+    horizon = int(future_horizon if future_horizon is not None else getattr(options, "future_horizon", 8))
+    min_angle = np.deg2rad(float(min_angle_deg))
+    max_angle = np.deg2rad(max(float(max_angle_deg), float(min_angle_deg)))
+    max_angle = min(max_angle, np.pi)
+
+    centers = rng.uniform(-0.15, 0.15, size=(pair_count, 2)).astype(np.float32)
+    theta_a = rng.uniform(-np.pi, np.pi, size=pair_count)
+    sep = rng.uniform(min_angle, max_angle, size=pair_count)
+    sep *= rng.choice(np.array([-1.0, 1.0]), size=pair_count)
+    theta_b = theta_a + sep
+    headings_pair = np.stack([theta_a, theta_b], axis=1)
+    headings = headings_pair.reshape(-1)
+    pair_ids = np.repeat(np.arange(pair_count, dtype=int), 2)
+    centers_trials = np.repeat(centers, 2, axis=0)
+    directions = np.stack([np.cos(headings), np.sin(headings)], axis=1).astype(np.float32)
+
+    denom = float(max(cross_t, T - 1 - cross_t, 1))
+    offsets = ((np.arange(T, dtype=np.float32) - float(cross_t)) / denom) * float(line_extent)
+    pos = centers_trials[None] + offsets[:, None, None] * directions[None]
+    pos[:, :, 0] = np.clip(pos[:, :, 0], -float(options.box_width) / 2 + 0.02, float(options.box_width) / 2 - 0.02)
+    pos[:, :, 1] = np.clip(pos[:, :, 1], -float(options.box_height) / 2 + 0.02, float(options.box_height) / 2 - 0.02)
+    vel = np.zeros_like(pos, dtype=np.float32)
+    vel[1:] = pos[1:] - pos[:-1]
+    if T > 1:
+        vel[0] = vel[1]
+
+    cue_dim = int(getattr(options, "cue_dim", max(0, int(getattr(options, "velocity_dim", 2)) - 2)))
+    v = np.concatenate([vel, np.zeros((T, B, cue_dim), dtype=np.float32)], axis=-1)
+    device = torch.device(options.device)
+    pos_t = torch.tensor(pos, dtype=torch.float32, device=device)
+    v_t = torch.tensor(v, dtype=torch.float32, device=device)
+    init_pos = torch.tensor(pos[0], dtype=torch.float32, device=device)[:, None, :]
+    init_actv = place_cells.get_activation(init_pos).squeeze(1)
+    angle_sep = np.abs(np.rad2deg(np.angle(np.exp(1j * (theta_b - theta_a)))))
+    angle_sep = np.minimum(angle_sep, 360.0 - angle_sep)
+    return CrossingBatch(
+        inputs=(v_t, init_actv),
+        positions_np=pos.astype(np.float32),
+        velocity_np=vel.astype(np.float32),
+        headings_np=headings.astype(np.float32),
+        pair_ids=pair_ids,
+        angle_sep_deg=angle_sep.astype(np.float32),
+        crossing_step=cross_t,
+        future_horizon=horizon,
+    )
+
+
+def assert_crossing_batch(batch: CrossingBatch, min_angle_deg: float) -> None:
+    t = int(batch.crossing_step)
+    for pair_id in np.unique(batch.pair_ids):
+        idx = np.where(batch.pair_ids == pair_id)[0]
+        if idx.size != 2:
+            continue
+        if not np.allclose(batch.positions_np[t, idx[0]], batch.positions_np[t, idx[1]], atol=1e-5):
+            raise AssertionError("Crossing pair positions are not matched at crossing_step.")
+    if np.nanmin(batch.angle_sep_deg) < float(min_angle_deg) - 1e-5:
+        raise AssertionError("Crossing pair angle separation is below the requested minimum.")
 
 
 def assert_matched_prebranch(batch: ForkBatch, options: SimpleNamespace) -> None:
@@ -1478,6 +1570,192 @@ def predictive_units_for_preferred_horizon(
         return selected
     order = np.argsort(dist)
     return candidates[order[: min(candidates.size, max(min_units, 8))]]
+
+
+def safe_pearson_corr(a: np.ndarray, b: np.ndarray) -> float:
+    a = np.asarray(a, dtype=float).reshape(-1)
+    b = np.asarray(b, dtype=float).reshape(-1)
+    if a.size < 2 or b.size < 2:
+        return float("nan")
+    a = a - np.nanmean(a)
+    b = b - np.nanmean(b)
+    denom = float(np.sqrt(np.nansum(a * a) * np.nansum(b * b)))
+    if denom <= 1e-12 or not np.isfinite(denom):
+        return float("nan")
+    return float(np.nansum(a * b) / denom)
+
+
+def bootstrap_ci(values: np.ndarray, rng: np.random.Generator, n_boot: int = 2000) -> Tuple[float, float]:
+    vals = np.asarray(values, dtype=float)
+    vals = vals[np.isfinite(vals)]
+    if vals.size == 0:
+        return float("nan"), float("nan")
+    if vals.size == 1:
+        return float(vals[0]), float(vals[0])
+    means = np.empty(int(n_boot), dtype=float)
+    for i in range(int(n_boot)):
+        means[i] = float(np.mean(rng.choice(vals, size=vals.size, replace=True)))
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
+def summarize_corr_rows(rows: Sequence[Dict[str, object]], rng: np.random.Generator) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    signals = sorted({str(row.get("signal")) for row in rows})
+    summary_rows: List[Dict[str, object]] = []
+    for signal in signals:
+        vals = np.asarray([float(row.get("correlation", np.nan)) for row in rows if row.get("signal") == signal], dtype=float)
+        vals = vals[np.isfinite(vals)]
+        lo, hi = bootstrap_ci(vals, rng, n_boot=1000)
+        summary_rows.append(
+            {
+                "signal": signal,
+                "n_pairs": int(vals.size),
+                "mean_correlation": float(np.mean(vals)) if vals.size else float("nan"),
+                "sem_correlation": float(np.std(vals, ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else float("nan"),
+                "ci95_low": lo,
+                "ci95_high": hi,
+            }
+        )
+
+    pred_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "predictive" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    std_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "standard_grid" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    common = sorted(set(pred_by_pair) & set(std_by_pair))
+    diffs = np.asarray([std_by_pair[p] - pred_by_pair[p] for p in common], dtype=float)
+    lo, hi = bootstrap_ci(diffs, rng, n_boot=2000)
+    comparison = {
+        "n_matched_pairs": int(diffs.size),
+        "mean_standard_minus_predictive_corr": float(np.mean(diffs)) if diffs.size else float("nan"),
+        "ci95_low": lo,
+        "ci95_high": hi,
+        "fraction_standard_gt_predictive": float(np.mean(diffs > 0)) if diffs.size else float("nan"),
+    }
+    return summary_rows, comparison
+
+
+def run_crossing(args) -> Path:
+    rng = set_seed(int(args.random_seed))
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    out_dir = ensure_dir(args.output_dir)
+    configure_logging(out_dir, "crossing.log")
+    log_info("[crossing] checkpoint=%s", args.checkpoint_path)
+    log_info("[crossing] gridness=%s", args.gridness_path)
+    model, place_cells, options, _ = load_future_model(args.checkpoint_path, device=device)
+    grid_data = load_gridness_payload(args.gridness_path)
+    units = class_arrays(grid_data, int(options.Ng), fallback=bool(args.allow_fallback_units))
+    log_info(
+        "[crossing] device=%s class_counts=%s min_angle_deg=%.1f",
+        device,
+        {k: int(v.size) for k, v in units.items()},
+        float(args.min_angle_deg),
+    )
+
+    groups: Dict[str, np.ndarray] = {
+        "predictive": units["predictive"],
+        "standard_grid": units["standard"],
+        "retrospective": units["retrospective"],
+        "band": units["band"],
+    }
+    pred_count = max(1, int(units["predictive"].size))
+    if units["standard"].size:
+        groups["standard_grid_matched_count"] = units["standard"][: min(pred_count, units["standard"].size)]
+    random_candidates = np.setdiff1d(np.arange(int(options.Ng), dtype=int), units["predictive"])
+
+    rows: List[Dict[str, object]] = []
+    pair_offset = 0
+    model.eval()
+    start_time = time.time()
+    with torch.no_grad():
+        for batch_idx in range(max(1, int(args.n_batches))):
+            batch = generate_crossing_batch(
+                options,
+                place_cells,
+                batch_size=int(args.batch_size),
+                rng=rng,
+                crossing_step=args.crossing_step,
+                min_angle_deg=float(args.min_angle_deg),
+                max_angle_deg=float(args.max_angle_deg),
+                line_extent=float(args.line_extent),
+                future_horizon=int(args.future_horizon),
+            )
+            assert_crossing_batch(batch, float(args.min_angle_deg))
+            states = model.g(batch.inputs).detach().cpu().numpy()
+            t = int(batch.crossing_step)
+            fut_t = min(t + int(args.future_horizon), states.shape[0] - 1)
+            for local_pid in np.unique(batch.pair_ids):
+                idx = np.where(batch.pair_ids == local_pid)[0]
+                if idx.size != 2:
+                    continue
+                a, b = int(idx[0]), int(idx[1])
+                pair_id = pair_offset + int(local_pid)
+                future_sep_cm = float(np.linalg.norm(batch.positions_np[fut_t, a] - batch.positions_np[fut_t, b]) * 100.0)
+                base = {
+                    "pair_id": pair_id,
+                    "batch": int(batch_idx),
+                    "crossing_step": int(t),
+                    "future_horizon": int(args.future_horizon),
+                    "angle_sep_deg": float(batch.angle_sep_deg[int(local_pid)]),
+                    "future_position_sep_cm": future_sep_cm,
+                }
+                for signal, unit_idx in groups.items():
+                    unit_idx = np.asarray(unit_idx, dtype=int)
+                    corr = safe_pearson_corr(states[t, a, unit_idx], states[t, b, unit_idx]) if unit_idx.size else float("nan")
+                    rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
+                if random_candidates.size:
+                    random_corrs = []
+                    for _ in range(max(1, int(args.matched_random_repeats))):
+                        n = min(pred_count, random_candidates.size)
+                        draw = rng.choice(random_candidates, size=n, replace=False)
+                        random_corrs.append(safe_pearson_corr(states[t, a, draw], states[t, b, draw]))
+                    rows.append(
+                        {
+                            **base,
+                            "signal": "random_matched_count",
+                            "n_units": int(min(pred_count, random_candidates.size)),
+                            "correlation": float(np.nanmean(random_corrs)),
+                        }
+                    )
+            pair_offset += int(batch.pair_ids.max()) + 1
+            if (batch_idx + 1) % max(1, int(args.log_every_batches)) == 0:
+                log_info(
+                    "[crossing] batch=%d/%d pairs=%d elapsed=%s",
+                    batch_idx + 1,
+                    int(args.n_batches),
+                    pair_offset,
+                    format_duration(time.time() - start_time),
+                )
+
+    summary_rows, comparison = summarize_corr_rows(rows, rng)
+    write_csv(out_dir / "crossing_pair_metrics.csv", rows)
+    write_csv(out_dir / "crossing_summary.csv", summary_rows)
+    payload = {
+        "checkpoint_path": str(args.checkpoint_path),
+        "gridness_path": str(args.gridness_path),
+        "n_pairs": int(pair_offset),
+        "class_counts": {k: int(v.size) for k, v in units.items()},
+        "comparison": comparison,
+        "summary_rows": summary_rows,
+        "pair_metrics_path": str(out_dir / "crossing_pair_metrics.csv"),
+        "summary_path": str(out_dir / "crossing_summary.csv"),
+    }
+    write_json(out_dir / "crossing_metrics.json", payload)
+    write_json(out_dir / "summary.json", payload)
+    log_info(
+        "[crossing] mean standard-minus-predictive corr=%.4f ci95=[%.4f, %.4f] pairs=%d",
+        float(comparison.get("mean_standard_minus_predictive_corr", np.nan)),
+        float(comparison.get("ci95_low", np.nan)),
+        float(comparison.get("ci95_high", np.nan)),
+        int(comparison.get("n_matched_pairs", 0)),
+    )
+    log_info("[crossing] wrote %s", out_dir)
+    return out_dir
 
 
 def run_decode(args) -> Path:
@@ -2371,6 +2649,26 @@ def run_smoke(args) -> Path:
     decode_dir = run_decode(decode_args)
     configure_logging(out_dir, "smoke.log")
 
+    crossing_args = argparse.Namespace(
+        checkpoint_path=str(full_ckpt),
+        gridness_path=str(gridness_path),
+        output_dir=str(out_dir / "crossing"),
+        device="cpu",
+        batch_size=8,
+        n_batches=1,
+        crossing_step=None,
+        future_horizon=4,
+        min_angle_deg=30.0,
+        max_angle_deg=140.0,
+        line_extent=0.55,
+        matched_random_repeats=3,
+        log_every_batches=1,
+        random_seed=15,
+        allow_fallback_units=True,
+    )
+    crossing_dir = run_crossing(crossing_args)
+    configure_logging(out_dir, "smoke.log")
+
     intervene_args = argparse.Namespace(
         checkpoint_path=str(full_ckpt),
         gridness_path=str(gridness_path),
@@ -2401,6 +2699,9 @@ def run_smoke(args) -> Path:
         decode_dir / "decode_metrics.csv",
         decode_dir / "route_control_metrics.csv",
         decode_dir / "horizon_specificity.csv",
+        crossing_dir / "crossing_metrics.json",
+        crossing_dir / "crossing_pair_metrics.csv",
+        crossing_dir / "crossing_summary.csv",
         intervene_dir / "intervention_metrics.json",
         intervene_dir / "intervention_metrics.csv",
     ]
@@ -2516,6 +2817,23 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_decode.add_argument("--horizon_specificity", action="store_true")
     p_decode.add_argument("--matched_group_repeats", type=int, default=1)
 
+    p_cross = sub.add_parser("crossing", help="Compare grid class correlations on matched X-crossing trajectories.")
+    p_cross.add_argument("--checkpoint_path", required=True)
+    p_cross.add_argument("--gridness_path", required=True)
+    p_cross.add_argument("--output_dir", required=True)
+    p_cross.add_argument("--device", default=None)
+    p_cross.add_argument("--batch_size", type=int, default=128)
+    p_cross.add_argument("--n_batches", type=int, default=8)
+    p_cross.add_argument("--crossing_step", type=int, default=None)
+    p_cross.add_argument("--future_horizon", type=int, default=8)
+    p_cross.add_argument("--min_angle_deg", type=float, default=30.0)
+    p_cross.add_argument("--max_angle_deg", type=float, default=150.0)
+    p_cross.add_argument("--line_extent", type=float, default=0.75)
+    p_cross.add_argument("--matched_random_repeats", type=int, default=20)
+    p_cross.add_argument("--log_every_batches", type=int, default=5)
+    p_cross.add_argument("--random_seed", type=int, default=0)
+    p_cross.add_argument("--allow_fallback_units", action=argparse.BooleanOptionalAction, default=True)
+
     p_int = sub.add_parser("intervene", help="Ablate, scramble, and swap predictive activity pre-branch.")
     p_int.add_argument("--checkpoint_path", required=True)
     p_int.add_argument("--gridness_path", required=True)
@@ -2551,6 +2869,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         run_classify(args)
     elif args.cmd == "decode":
         run_decode(args)
+    elif args.cmd == "crossing":
+        run_crossing(args)
     elif args.cmd == "intervene":
         run_intervene(args)
     elif args.cmd == "smoke":

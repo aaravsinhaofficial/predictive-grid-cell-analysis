@@ -1088,13 +1088,28 @@ def compute_rate_maps(
     ys: np.ndarray,
     activations: np.ndarray,
     scorer: GridScorer,
+    progress_every: int = 0,
 ) -> np.ndarray:
     T, B, Ng = activations.shape
     flat_x = xs.reshape(-1)
     flat_y = ys.reshape(-1)
     maps = np.zeros((Ng, scorer._nbins, scorer._nbins), dtype=np.float32)
+    start_time = time.time()
+    progress_every = max(0, int(progress_every))
     for u in range(Ng):
         maps[u] = scorer.calculate_ratemap(flat_x, flat_y, activations[:, :, u].reshape(-1), statistic="mean")
+        if progress_every and ((u + 1) == 1 or (u + 1) % progress_every == 0 or (u + 1) == Ng):
+            elapsed = time.time() - start_time
+            rate = (u + 1) / max(elapsed, 1e-9)
+            eta = (Ng - (u + 1)) / max(rate, 1e-9)
+            log_info(
+                "[classify:ratemaps] %d/%d units (%.1f%%) elapsed=%s eta=%s",
+                u + 1,
+                Ng,
+                100.0 * float(u + 1) / max(1.0, float(Ng)),
+                format_duration(elapsed),
+                format_duration(eta),
+            )
     return maps
 
 
@@ -1247,8 +1262,24 @@ def run_classify(args) -> Path:
     ends = np.linspace(0.4, 1.0, num=10)
     scorer = GridScorer(int(args.res), coord_range, zip(starts, ends.tolist()))
     lags = list(range(-int(args.max_lag), int(args.max_lag) + 1))
-    log_info("[classify] scoring %d lags across %d units", len(lags), Ng_use)
-    scores_60, scores_90 = scorer.predictive_grid_scores(xs, ys, activations, lags, shift_mode="time")
+    score_log_every = int(getattr(args, "score_log_every_units", 25))
+    log_info(
+        "[classify] scoring %d lags across %d units; progress every %d units",
+        len(lags),
+        Ng_use,
+        score_log_every,
+    )
+    scores_60, scores_90 = scorer.predictive_grid_scores(
+        xs,
+        ys,
+        activations,
+        lags,
+        shift_mode="time",
+        progress=True,
+        progress_label="classify:gridness",
+        progress_every=score_log_every,
+        progress_callback=lambda msg: log_info("%s", msg),
+    )
     cm_step = cm_per_step(xs, ys)
     lag_cm = np.asarray(lags, dtype=float) * cm_step
     classes = classify_units_from_scores(lag_cm, scores_60, args.min_shift_cm, args.gridness_threshold)
@@ -1257,7 +1288,7 @@ def run_classify(args) -> Path:
     valid_best = best_idx >= 0
     best_lag_steps[valid_best] = np.asarray(lags, dtype=float)[best_idx[valid_best]]
     log_info("[classify] computing rate maps and band controls")
-    rate_maps = compute_rate_maps(xs, ys, activations, scorer)
+    rate_maps = compute_rate_maps(xs, ys, activations, scorer, progress_every=score_log_every)
 
     band_vals, band_kx, band_ky = band_scores(rate_maps, int(args.res), float(options.box_width))
     finite_band = band_vals[np.isfinite(band_vals)]
@@ -2703,6 +2734,7 @@ def run_smoke(args) -> Path:
         gridness_threshold=-1.0,
         band_percentile=80.0,
         band_threshold=None,
+        score_log_every_units=4,
     )
     classify_dir = run_classify(classify_args)
     configure_logging(out_dir, "smoke.log")
@@ -2878,6 +2910,12 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_class.add_argument("--gridness_threshold", type=float, default=0.2)
     p_class.add_argument("--band_percentile", type=float, default=90.0)
     p_class.add_argument("--band_threshold", type=float, default=None)
+    p_class.add_argument(
+        "--score_log_every_units",
+        type=int,
+        default=25,
+        help="During classification, log gridness/rate-map scoring progress every N units.",
+    )
 
     p_decode = sub.add_parser("decode", help="Decode future route/position/torus phase on matched fork trials.")
     p_decode.add_argument("--checkpoint_path", required=True)

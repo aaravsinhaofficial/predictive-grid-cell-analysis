@@ -534,7 +534,7 @@ class GridScorer(object):
 
     return np.asarray(scores_60), np.asarray(scores_90)
 
-  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path', progress=False, progress_label=None, progress_every=50):
+  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path', progress=False, progress_label=None, progress_every=50, progress_callback=None):
     """Predictive gridness across temporal or spatial shifts.
 
     Computes gridness (60° and 90°) for activations aligned to future/past
@@ -556,6 +556,8 @@ class GridScorer(object):
       progress: If True, print progress updates while scoring many units.
       progress_label: Optional label for progress output.
       progress_every: Number of units between progress updates.
+      progress_callback: Optional callable receiving one formatted progress
+        string. If omitted, progress messages are printed to stdout.
 
     Returns:
       If activations is 2D or unit_idx is provided: (scores_60, scores_90)
@@ -594,11 +596,12 @@ class GridScorer(object):
       scores_90 = np.zeros((len(lags), Ng))
       progress_step = max(1, int(progress_every))
       progress_name = progress_label or 'predictive_grid_scores'
+      emit_progress = progress_callback or (lambda msg: print(msg, flush=True))
       start_time = None
       if progress:
         start_time = time.time()
-        print('[%s] Scoring %d units across %d shifts (%s mode).' % (
-            progress_name, Ng, len(lags), shift_mode), flush=True)
+        emit_progress('[%s] Scoring %d units across %d shifts (%s mode).' % (
+            progress_name, Ng, len(lags), shift_mode))
       for u in range(Ng):
         s60, s90 = self._predictive_scores_single(
             xs,
@@ -616,16 +619,16 @@ class GridScorer(object):
           units_done = float(u + 1)
           rate = units_done / elapsed if elapsed > 0 else np.nan
           remaining = (Ng - units_done) / rate if np.isfinite(rate) and rate > 0 else np.nan
-          print('[%s] %d/%d units (%.1f%%) | elapsed %s | eta %s' % (
+          emit_progress('[%s] %d/%d units (%.1f%%) | elapsed %s | eta %s' % (
               progress_name,
               u + 1,
               Ng,
               100.0 * units_done / max(1.0, float(Ng)),
               _format_duration(elapsed),
-              _format_duration(remaining)), flush=True)
+              _format_duration(remaining)))
       if progress:
-        print('[%s] Completed in %s.' % (
-            progress_name, _format_duration(time.time() - start_time)), flush=True)
+        emit_progress('[%s] Completed in %s.' % (
+            progress_name, _format_duration(time.time() - start_time)))
       return scores_60, scores_90
     else:
       raise ValueError('activations must have shape [T,B] or [T,B,Ng]')

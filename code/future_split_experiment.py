@@ -14,6 +14,8 @@ Subcommands:
              trials and controls.
   crossing   Compare predictive and standard-grid population similarity at
              matched X-crossings with different travel directions.
+  plot_crossing
+             Plot crossing correlation summaries from a crossing output dir.
   intervene  Ablate/scramble/swap matched unit groups before the branch.
   smoke      Tiny CPU-only end-to-end smoke test.
 """
@@ -181,6 +183,11 @@ def write_csv(path: Path, rows: Sequence[Dict[str, object]]) -> None:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def read_csv_rows(path: Path | str) -> List[Dict[str, str]]:
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
 
 
 def _to_float_list(text_or_values: str | Sequence[float]) -> List[float]:
@@ -1871,6 +1878,170 @@ def run_crossing(args) -> Path:
     return out_dir
 
 
+def _csv_float(row: Dict[str, str], key: str, default: float = float("nan")) -> float:
+    try:
+        return float(row.get(key, ""))
+    except (TypeError, ValueError):
+        return default
+
+
+def _friendly_signal_name(signal: str) -> str:
+    names = {
+        "predictive": "Predictive",
+        "standard_grid": "Zero-lag grid",
+        "standard_grid_matched_count": "Zero-lag grid\nmatched n",
+        "retrospective": "Retrospective",
+        "band": "Band",
+        "random_matched_count": "Random\nmatched n",
+    }
+    return names.get(signal, signal.replace("_", " ").title())
+
+
+def run_plot_crossing(args) -> Path:
+    crossing_dir = Path(args.crossing_dir)
+    out_dir = ensure_dir(Path(args.output_dir) if args.output_dir else crossing_dir)
+    configure_logging(out_dir, "plot_crossing.log")
+    pair_path = crossing_dir / "crossing_pair_metrics.csv"
+    summary_path = crossing_dir / "crossing_summary.csv"
+    if not pair_path.exists():
+        raise FileNotFoundError(f"Missing crossing pair metrics: {pair_path}")
+    if not summary_path.exists():
+        raise FileNotFoundError(f"Missing crossing summary: {summary_path}")
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:
+        raise RuntimeError("plot_crossing needs matplotlib installed in the active environment.") from exc
+
+    pair_rows = read_csv_rows(pair_path)
+    summary_rows = read_csv_rows(summary_path)
+    signal_order = [
+        "standard_grid",
+        "standard_grid_matched_count",
+        "predictive",
+        "retrospective",
+        "band",
+        "random_matched_count",
+    ]
+    present_signals = {str(row.get("signal")) for row in summary_rows}
+    ordered_signals = [s for s in signal_order if s in present_signals]
+    ordered_signals.extend(sorted(present_signals - set(ordered_signals)))
+
+    try:
+        plt.style.use("seaborn-v0_8-whitegrid")
+    except Exception:
+        pass
+
+    summary_by_signal = {str(row.get("signal")): row for row in summary_rows}
+    means = np.asarray([_csv_float(summary_by_signal[s], "mean_correlation") for s in ordered_signals], dtype=float)
+    ci_low = np.asarray([_csv_float(summary_by_signal[s], "ci95_low") for s in ordered_signals], dtype=float)
+    ci_high = np.asarray([_csv_float(summary_by_signal[s], "ci95_high") for s in ordered_signals], dtype=float)
+    lower_err = np.maximum(0.0, means - ci_low)
+    upper_err = np.maximum(0.0, ci_high - means)
+    colors = {
+        "standard_grid": "#2a9d8f",
+        "standard_grid_matched_count": "#76c7ba",
+        "predictive": "#e76f51",
+        "retrospective": "#8d99ae",
+        "band": "#577590",
+        "random_matched_count": "#b8b8b8",
+    }
+
+    fig, ax = plt.subplots(figsize=(9.0, 4.8))
+    x = np.arange(len(ordered_signals))
+    ax.bar(x, means, color=[colors.get(s, "#6c757d") for s in ordered_signals], edgecolor="black", linewidth=0.7)
+    ax.errorbar(x, means, yerr=np.vstack([lower_err, upper_err]), fmt="none", color="black", capsize=4, linewidth=1.0)
+    ax.axhline(0.0, color="#333333", linewidth=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([_friendly_signal_name(s) for s in ordered_signals], rotation=0)
+    ax.set_ylabel("Matched crossing correlation")
+    ax.set_title(args.title or "X-crossing population similarity")
+    ax.margins(x=0.03)
+    fig.tight_layout()
+    summary_png = out_dir / "crossing_correlation_summary.png"
+    fig.savefig(summary_png, dpi=int(args.dpi))
+    plt.close(fig)
+
+    pred_by_pair = {
+        int(row["pair_id"]): _csv_float(row, "correlation")
+        for row in pair_rows
+        if row.get("signal") == "predictive" and np.isfinite(_csv_float(row, "correlation"))
+    }
+    std_by_pair = {
+        int(row["pair_id"]): _csv_float(row, "correlation")
+        for row in pair_rows
+        if row.get("signal") == "standard_grid" and np.isfinite(_csv_float(row, "correlation"))
+    }
+    common_pairs = sorted(set(pred_by_pair) & set(std_by_pair))
+    pred = np.asarray([pred_by_pair[p] for p in common_pairs], dtype=float)
+    std = np.asarray([std_by_pair[p] for p in common_pairs], dtype=float)
+    diffs = std - pred
+    rng = np.random.default_rng(int(args.random_seed))
+    lo, hi = bootstrap_ci(diffs, rng, n_boot=2000)
+    mean_diff = float(np.mean(diffs)) if diffs.size else float("nan")
+
+    diff_png = None
+    scatter_png = None
+    if diffs.size:
+        fig, ax = plt.subplots(figsize=(7.0, 4.6))
+        ax.hist(diffs, bins=int(args.hist_bins), color="#5c677d", alpha=0.82, edgecolor="white")
+        ax.axvline(0.0, color="#222222", linewidth=1.0, linestyle="--", label="No difference")
+        ax.axvline(mean_diff, color="#e76f51", linewidth=1.8, label=f"Mean = {mean_diff:.4f}")
+        if np.isfinite(lo) and np.isfinite(hi):
+            ax.axvspan(lo, hi, color="#e76f51", alpha=0.18, label=f"95% CI [{lo:.4f}, {hi:.4f}]")
+        ax.set_xlabel("Zero-lag grid corr - predictive corr")
+        ax.set_ylabel("Crossing pairs")
+        ax.set_title(args.title or "Paired crossing difference")
+        ax.legend(frameon=True)
+        fig.tight_layout()
+        diff_png = out_dir / "crossing_standard_minus_predictive_hist.png"
+        fig.savefig(diff_png, dpi=int(args.dpi))
+        plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(5.4, 5.2))
+        ax.scatter(pred, std, s=8, alpha=0.35, color="#4a5568", linewidths=0)
+        finite = np.concatenate([pred[np.isfinite(pred)], std[np.isfinite(std)]])
+        if finite.size:
+            lo_lim, hi_lim = np.percentile(finite, [1, 99])
+            pad = max(0.02, 0.08 * float(hi_lim - lo_lim))
+            lo_lim -= pad
+            hi_lim += pad
+            ax.set_xlim(lo_lim, hi_lim)
+            ax.set_ylim(lo_lim, hi_lim)
+            ax.plot([lo_lim, hi_lim], [lo_lim, hi_lim], color="#222222", linewidth=1.0, linestyle="--")
+        ax.set_xlabel("Predictive correlation")
+        ax.set_ylabel("Zero-lag grid correlation")
+        ax.set_title("Matched pairs")
+        fig.tight_layout()
+        scatter_png = out_dir / "crossing_predictive_vs_standard_scatter.png"
+        fig.savefig(scatter_png, dpi=int(args.dpi))
+        plt.close(fig)
+
+    plot_summary = {
+        "crossing_dir": str(crossing_dir),
+        "summary_plot": str(summary_png),
+        "difference_plot": str(diff_png) if diff_png else None,
+        "scatter_plot": str(scatter_png) if scatter_png else None,
+        "n_matched_pairs": int(diffs.size),
+        "mean_standard_minus_predictive_corr": mean_diff,
+        "ci95_low": lo,
+        "ci95_high": hi,
+        "signals": ordered_signals,
+    }
+    write_json(out_dir / "crossing_plot_summary.json", plot_summary)
+    log_info(
+        "[plot_crossing] wrote %s, mean standard-minus-predictive=%.4f ci95=[%.4f, %.4f]",
+        out_dir,
+        mean_diff,
+        lo,
+        hi,
+    )
+    return out_dir
+
+
 def run_decode(args) -> Path:
     rng = set_seed(int(args.random_seed))
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -2954,6 +3125,14 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_cross.add_argument("--random_seed", type=int, default=0)
     p_cross.add_argument("--allow_fallback_units", action=argparse.BooleanOptionalAction, default=True)
 
+    p_plot_cross = sub.add_parser("plot_crossing", help="Plot summary figures from a crossing output directory.")
+    p_plot_cross.add_argument("--crossing_dir", required=True)
+    p_plot_cross.add_argument("--output_dir", default=None)
+    p_plot_cross.add_argument("--title", default=None)
+    p_plot_cross.add_argument("--dpi", type=int, default=200)
+    p_plot_cross.add_argument("--hist_bins", type=int, default=50)
+    p_plot_cross.add_argument("--random_seed", type=int, default=0)
+
     p_int = sub.add_parser("intervene", help="Ablate, scramble, and swap predictive activity pre-branch.")
     p_int.add_argument("--checkpoint_path", required=True)
     p_int.add_argument("--gridness_path", required=True)
@@ -2991,6 +3170,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         run_decode(args)
     elif args.cmd == "crossing":
         run_crossing(args)
+    elif args.cmd == "plot_crossing":
+        run_plot_crossing(args)
     elif args.cmd == "intervene":
         run_intervene(args)
     elif args.cmd == "smoke":

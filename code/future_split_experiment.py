@@ -331,6 +331,32 @@ def options_to_dict(options: SimpleNamespace) -> Dict[str, object]:
     return out
 
 
+def extract_state_dict(raw: object) -> Dict[str, torch.Tensor]:
+    """Normalize common core RNN checkpoint formats."""
+    if isinstance(raw, dict):
+        for key in ("core_state_dict", "state_dict", "model_state_dict", "model"):
+            state = raw.get(key)
+            if isinstance(state, dict) and all(hasattr(v, "shape") for v in state.values()):
+                return state
+        if all(hasattr(v, "shape") for v in raw.values()):
+            return raw
+    raise TypeError(f"Unsupported checkpoint format: {type(raw)}")
+
+
+def infer_dims_from_state_dict(state: Dict[str, torch.Tensor]) -> Tuple[int, int, int]:
+    missing = [key for key in ("encoder.weight", "decoder.weight", "RNN.weight_ih_l0") if key not in state]
+    if missing:
+        raise KeyError(f"Checkpoint missing required tensors: {missing}")
+    enc = state["encoder.weight"]
+    dec = state["decoder.weight"]
+    rnn_ih = state["RNN.weight_ih_l0"]
+    Ng_enc, Np = enc.shape
+    Np_dec, Ng_dec = dec.shape
+    if Ng_enc != Ng_dec or Np != Np_dec:
+        raise ValueError(f"Inconsistent encoder/decoder shapes: encoder {tuple(enc.shape)}, decoder {tuple(dec.shape)}")
+    return int(Ng_enc), int(Np), int(rnn_ih.shape[1])
+
+
 class FutureSplitRNN(torch.nn.Module):
     """RNN with current-place and future-place readouts."""
 
@@ -495,6 +521,50 @@ def load_future_model(checkpoint_path: str | Path, device: str = "cpu") -> Tuple
     model.load_state_dict(payload["model_state_dict"])
     model.eval()
     return model, place_cells, options, payload
+
+
+def load_analysis_model(
+    checkpoint_path: str | Path,
+    device: str = "cpu",
+    sequence_length: Optional[int] = None,
+    batch_size: Optional[int] = None,
+) -> Tuple[torch.nn.Module, PlaceCells, SimpleNamespace, Dict]:
+    """Load either a future-split full checkpoint or a plain path-integration checkpoint."""
+    payload = torch.load(checkpoint_path, map_location=device)
+    if (
+        isinstance(payload, dict)
+        and "model_state_dict" in payload
+        and any(str(k).startswith("future_decoder.") for k in payload["model_state_dict"].keys())
+    ):
+        model, place_cells, options, full_payload = load_future_model(checkpoint_path, device=device)
+        if sequence_length is not None:
+            options.sequence_length = int(sequence_length)
+        if batch_size is not None:
+            options.batch_size = int(batch_size)
+        return model, place_cells, options, {"format": "future_split_full", **full_payload}
+
+    state = extract_state_dict(payload)
+    state = {k: v for k, v in state.items() if not str(k).startswith("future_decoder.")}
+    Ng, Np, velocity_dim = infer_dims_from_state_dict(state)
+    cue_dim = max(0, int(velocity_dim) - 2)
+    options = make_options(
+        task="binary_fork",
+        batch_size=int(batch_size or COMMON_DEFAULTS["batch_size"]),
+        sequence_length=int(sequence_length or COMMON_DEFAULTS["sequence_length"]),
+        Np=Np,
+        Ng=Ng,
+        cue_dim=cue_dim,
+        device=device,
+        save_dir=str(Path(checkpoint_path).parent),
+        run_ID="crossing_analysis",
+    )
+    options.velocity_dim = int(velocity_dim)
+    options.cue_dim = cue_dim
+    place_cells = PlaceCells(options)
+    model = CoreRNN(options, place_cells).to(device)
+    model.load_state_dict(state)
+    model.eval()
+    return model, place_cells, options, {"format": "core_state_dict", "checkpoint_path": str(checkpoint_path)}
 
 
 def load_core_model(checkpoint_path: str | Path, options: SimpleNamespace, place_cells: PlaceCells) -> CoreRNN:
@@ -1130,7 +1200,12 @@ def classify_units_from_scores(
 
 def run_classify(args) -> Path:
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model, place_cells, options, payload = load_future_model(args.checkpoint_path, device=device)
+    model, place_cells, options, payload = load_analysis_model(
+        args.checkpoint_path,
+        device=device,
+        sequence_length=args.sequence_length,
+        batch_size=args.batch_size,
+    )
     options.batch_size = int(args.batch_size)
     options.sequence_length = int(args.sequence_length or options.sequence_length)
     options.device = device
@@ -1149,6 +1224,7 @@ def run_classify(args) -> Path:
         int(args.res),
         int(args.max_lag),
     )
+    log_info("[classify] checkpoint_format=%s velocity_dim=%d", payload.get("format", "?"), int(options.velocity_dim))
 
     start_time = time.time()
     log_info("[classify] collecting zero-cue open-field sequences")
@@ -1647,7 +1723,12 @@ def run_crossing(args) -> Path:
     configure_logging(out_dir, "crossing.log")
     log_info("[crossing] checkpoint=%s", args.checkpoint_path)
     log_info("[crossing] gridness=%s", args.gridness_path)
-    model, place_cells, options, _ = load_future_model(args.checkpoint_path, device=device)
+    model, place_cells, options, payload = load_analysis_model(
+        args.checkpoint_path,
+        device=device,
+        sequence_length=max(int(args.future_horizon) * 3 + 2, 32),
+        batch_size=args.batch_size,
+    )
     grid_data = load_gridness_payload(args.gridness_path)
     units = class_arrays(grid_data, int(options.Ng), fallback=bool(args.allow_fallback_units))
     log_info(
@@ -1656,6 +1737,7 @@ def run_crossing(args) -> Path:
         {k: int(v.size) for k, v in units.items()},
         float(args.min_angle_deg),
     )
+    log_info("[crossing] checkpoint_format=%s velocity_dim=%d", payload.get("format", "?"), int(options.velocity_dim))
 
     groups: Dict[str, np.ndarray] = {
         "predictive": units["predictive"],

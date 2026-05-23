@@ -582,6 +582,8 @@ class GridScorer(object):
     elif activations.ndim == 3:
       T, B, Ng = activations.shape
       if unit_idx is not None:
+        # Caller asked for one unit from a population tensor; score only that
+        # unit's activity against shifted positions.
         return self._predictive_scores_single(
             xs,
             ys,
@@ -592,6 +594,7 @@ class GridScorer(object):
             periodic=periodic,
             space_projection=space_projection)
       # All units
+      # scores_60/scores_90 have one row per tested lag and one column per unit.
       scores_60 = np.zeros((len(lags), Ng))
       scores_90 = np.zeros((len(lags), Ng))
       progress_step = max(1, int(progress_every))
@@ -603,6 +606,8 @@ class GridScorer(object):
         emit_progress('[%s] Scoring %d units across %d shifts (%s mode).' % (
             progress_name, Ng, len(lags), shift_mode))
       for u in range(Ng):
+        # For this unit, build shifted rate maps for every lag and compute the
+        # resulting 60-degree and 90-degree gridness scores.
         s60, s90 = self._predictive_scores_single(
             xs,
             ys,
@@ -614,6 +619,8 @@ class GridScorer(object):
             space_projection=space_projection)
         scores_60[:, u] = s60
         scores_90[:, u] = s90
+        # Progress logging is important for all-units classification because
+        # scoring thousands of units across many shifts can take a long time.
         if progress and ((u + 1) == 1 or (u + 1) % progress_step == 0 or (u + 1) == Ng):
           elapsed = time.time() - start_time
           units_done = float(u + 1)

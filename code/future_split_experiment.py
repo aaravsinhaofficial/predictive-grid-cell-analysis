@@ -16,6 +16,10 @@ Subcommands:
              matched X-crossings with different travel directions.
   plot_crossing
              Plot crossing correlation summaries from a crossing output dir.
+  crossing_step_sweep
+             Run crossing over multiple crossing timepoints and plot the curve.
+  plot_crossing_step_sweeps
+             Overlay crossing-step sweep curves from multiple output dirs.
   intervene  Ablate/scramble/swap matched unit groups before the branch.
   smoke      Tiny CPU-only end-to-end smoke test.
 """
@@ -170,6 +174,11 @@ def write_json(path: Path, payload: Dict) -> None:
         json.dump(json_safe(payload), f, indent=2)
 
 
+def read_json(path: Path | str) -> Dict:
+    with open(path) as f:
+        return json.load(f)
+
+
 def write_csv(path: Path, rows: Sequence[Dict[str, object]]) -> None:
     ensure_dir(path.parent)
     if not rows:
@@ -195,6 +204,10 @@ def _to_float_list(text_or_values: str | Sequence[float]) -> List[float]:
         pieces = [p for p in text_or_values.replace(",", " ").split() if p]
         return [float(p) for p in pieces]
     return [float(x) for x in text_or_values]
+
+
+def _to_int_list(text_or_values: str | Sequence[int]) -> List[int]:
+    return [int(round(x)) for x in _to_float_list(text_or_values)]
 
 
 def _safe_nanargmax(arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -619,13 +632,22 @@ class ForkBatch:
 
 @dataclass
 class CrossingBatch:
+    # RNN inputs are (velocity_sequence, initial_place_cell_activity), matching
+    # the interface used by the path-integration RNN.
     inputs: Tuple[torch.Tensor, torch.Tensor]
+    # Physical positions for all generated trajectories, shape [T, B, 2].
     positions_np: np.ndarray
+    # Physical velocity increments derived from positions, shape [T, B, 2].
     velocity_np: np.ndarray
+    # Heading angle for each trajectory in radians, shape [B].
     headings_np: np.ndarray
+    # Every two trajectories share a pair id and cross at the same point.
     pair_ids: np.ndarray
+    # Absolute heading separation for each pair in degrees.
     angle_sep_deg: np.ndarray
+    # Time index at which each trajectory pair occupies the same position.
     crossing_step: int
+    # Metadata: the future offset used to record future physical separation.
     future_horizon: int
 
 
@@ -971,46 +993,75 @@ def generate_crossing_batch(
     future_horizon: Optional[int] = None,
 ) -> CrossingBatch:
     """Generate paired straight-line trajectories that cross as an X."""
+    # The analysis is pair-based, so enforce an even batch size.
     B = max(2, int(batch_size))
     if B % 2:
         B -= 1
     pair_count = B // 2
+
+    # Use the model's configured sequence length and put the crossing in the
+    # middle unless the caller requested a specific crossing time.
     T = int(options.sequence_length)
     cross_t = int(crossing_step if crossing_step is not None else T // 2)
     cross_t = int(np.clip(cross_t, 1, T - 2))
     horizon = int(future_horizon if future_horizon is not None else getattr(options, "future_horizon", 8))
+
+    # Convert the requested angle range into radians. If min == max, this
+    # produces fixed-angle crossings such as exactly 90 degrees.
     min_angle = np.deg2rad(float(min_angle_deg))
     max_angle = np.deg2rad(max(float(max_angle_deg), float(min_angle_deg)))
     max_angle = min(max_angle, np.pi)
 
+    # Each pair gets one shared crossing center. Both trajectories pass through
+    # this same center at cross_t, so current physical position is matched.
     centers = rng.uniform(-0.15, 0.15, size=(pair_count, 2)).astype(np.float32)
+
+    # Draw heading A freely, then draw heading B at the requested angular
+    # separation clockwise or counterclockwise from heading A.
     theta_a = rng.uniform(-np.pi, np.pi, size=pair_count)
     sep = rng.uniform(min_angle, max_angle, size=pair_count)
     sep *= rng.choice(np.array([-1.0, 1.0]), size=pair_count)
     theta_b = theta_a + sep
+
+    # Flatten paired headings into the batch dimension: [pair0_A, pair0_B,
+    # pair1_A, pair1_B, ...].
     headings_pair = np.stack([theta_a, theta_b], axis=1)
     headings = headings_pair.reshape(-1)
     pair_ids = np.repeat(np.arange(pair_count, dtype=int), 2)
     centers_trials = np.repeat(centers, 2, axis=0)
     directions = np.stack([np.cos(headings), np.sin(headings)], axis=1).astype(np.float32)
 
+    # offsets[cross_t] is exactly zero. Therefore both members of a pair have
+    # identical position at cross_t, but their past/future paths differ by angle.
     denom = float(max(cross_t, T - 1 - cross_t, 1))
     offsets = ((np.arange(T, dtype=np.float32) - float(cross_t)) / denom) * float(line_extent)
     pos = centers_trials[None] + offsets[:, None, None] * directions[None]
+
+    # Keep trajectories inside the square arena used by the original RNN.
     pos[:, :, 0] = np.clip(pos[:, :, 0], -float(options.box_width) / 2 + 0.02, float(options.box_width) / 2 - 0.02)
     pos[:, :, 1] = np.clip(pos[:, :, 1], -float(options.box_height) / 2 + 0.02, float(options.box_height) / 2 - 0.02)
+
+    # The RNN consumes velocity increments, not absolute positions. vel[0] is
+    # copied from vel[1] so the first step has a valid heading/magnitude.
     vel = np.zeros_like(pos, dtype=np.float32)
     vel[1:] = pos[1:] - pos[:-1]
     if T > 1:
         vel[0] = vel[1]
 
+    # Future-split checkpoints may expect extra cue channels; the crossing task
+    # supplies zero cue channels so it behaves like ordinary path integration.
     cue_dim = int(getattr(options, "cue_dim", max(0, int(getattr(options, "velocity_dim", 2)) - 2)))
     v = np.concatenate([vel, np.zeros((T, B, cue_dim), dtype=np.float32)], axis=-1)
     device = torch.device(options.device)
     pos_t = torch.tensor(pos, dtype=torch.float32, device=device)
     v_t = torch.tensor(v, dtype=torch.float32, device=device)
+
+    # Initialize the RNN with place-cell activity for the first physical
+    # position of each trajectory, matching the standard path-integration setup.
     init_pos = torch.tensor(pos[0], dtype=torch.float32, device=device)[:, None, :]
     init_actv = place_cells.get_activation(init_pos).squeeze(1)
+
+    # Store absolute separation in [0, 180] degrees for logging and QC.
     angle_sep = np.abs(np.rad2deg(np.angle(np.exp(1j * (theta_b - theta_a)))))
     angle_sep = np.minimum(angle_sep, 360.0 - angle_sep)
     return CrossingBatch(
@@ -1026,6 +1077,8 @@ def generate_crossing_batch(
 
 
 def assert_crossing_batch(batch: CrossingBatch, min_angle_deg: float) -> None:
+    # This is the central matched-state assertion: both trajectories in a pair
+    # must occupy the same physical x-y position at the crossing time.
     t = int(batch.crossing_step)
     for pair_id in np.unique(batch.pair_ids):
         idx = np.where(batch.pair_ids == pair_id)[0]
@@ -1033,6 +1086,8 @@ def assert_crossing_batch(batch: CrossingBatch, min_angle_deg: float) -> None:
             continue
         if not np.allclose(batch.positions_np[t, idx[0]], batch.positions_np[t, idx[1]], atol=1e-5):
             raise AssertionError("Crossing pair positions are not matched at crossing_step.")
+
+    # The pair should also satisfy the requested direction-separation constraint.
     if np.nanmin(batch.angle_sep_deg) < float(min_angle_deg) - 1e-5:
         raise AssertionError("Crossing pair angle separation is below the requested minimum.")
 
@@ -1201,11 +1256,21 @@ def classify_units_from_scores(
     min_shift_cm: float,
     gridness_threshold: float,
 ) -> Dict[str, np.ndarray]:
+    # For each unit, find the temporal lag at which its 60-degree gridness score
+    # is highest. Positive best_cm means the unit's grid map aligns best with a
+    # future position; near-zero best_cm means ordinary/zero-lag grid coding.
     best_idx, best_vals = _safe_nanargmax(scores_60)
     best_cm = np.full(best_idx.shape, np.nan, dtype=float)
     valid = best_idx >= 0
     best_cm[valid] = lag_cm[best_idx[valid]]
+
+    # Only units above the gridness threshold are allowed to be called grid-like.
     qual = valid & np.isfinite(best_vals) & (best_vals >= gridness_threshold)
+
+    # Classification is intentionally simple and interpretable:
+    # predictive = high-gridness units shifted forward by at least min_shift_cm;
+    # retrospective = shifted backward by at least min_shift_cm;
+    # standard = high-gridness units whose best shift remains near zero.
     predictive = qual & (best_cm >= min_shift_cm)
     retrospective = qual & (best_cm <= -min_shift_cm)
     standard = qual & ~(predictive | retrospective)
@@ -1222,6 +1287,8 @@ def classify_units_from_scores(
 
 def run_classify(args) -> Path:
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    # load_analysis_model supports both future_split_full.pth and older
+    # plain path-integration checkpoints such as epoch_50.pth.
     model, place_cells, options, payload = load_analysis_model(
         args.checkpoint_path,
         device=device,
@@ -1232,6 +1299,8 @@ def run_classify(args) -> Path:
     options.sequence_length = int(args.sequence_length or options.sequence_length)
     options.device = device
 
+    # The classifier writes gridness_data.npz, which later crossing/decode
+    # commands use as the source of unit-class labels.
     out_dir = ensure_dir(Path(args.output_dir) if args.output_dir else Path(payload.get("output_dir", ".")).parent / "future_split_classify")
     configure_logging(out_dir, "classify.log")
     Ng_use_arg = str(args.Ng_use).lower()
@@ -1250,6 +1319,8 @@ def run_classify(args) -> Path:
 
     start_time = time.time()
     log_info("[classify] collecting zero-cue open-field sequences")
+    # Open-field data keeps classification independent from the later crossing
+    # trajectories; this avoids defining PGCs on the same data used for testing.
     xs, ys, activations = collect_open_field_sequences(
         model,
         options,
@@ -1268,6 +1339,9 @@ def run_classify(args) -> Path:
     starts = [0.2] * 10
     ends = np.linspace(0.4, 1.0, num=10)
     scorer = GridScorer(int(args.res), coord_range, zip(starts, ends.tolist()))
+
+    # Evaluate all integer time shifts from -max_lag through +max_lag.
+    # Example: max_lag=12 scores 25 shifts; max_lag=24 scores 49 shifts.
     lags = list(range(-int(args.max_lag), int(args.max_lag) + 1))
     score_log_every = int(getattr(args, "score_log_every_units", 25))
     log_info(
@@ -1289,12 +1363,18 @@ def run_classify(args) -> Path:
     )
     cm_step = cm_per_step(xs, ys)
     lag_cm = np.asarray(lags, dtype=float) * cm_step
+
+    # Convert shifted gridness scores into predictive/retrospective/standard
+    # unit-index arrays.
     classes = classify_units_from_scores(lag_cm, scores_60, args.min_shift_cm, args.gridness_threshold)
     best_idx, _ = _safe_nanargmax(scores_60)
     best_lag_steps = np.full(best_idx.shape, np.nan, dtype=float)
     valid_best = best_idx >= 0
     best_lag_steps[valid_best] = np.asarray(lags, dtype=float)[best_idx[valid_best]]
     log_info("[classify] computing rate maps and band controls")
+
+    # Band units are a control population selected from rate-map structure,
+    # independent of the predictive-vs-zero-lag split.
     rate_maps = compute_rate_maps(xs, ys, activations, scorer, progress_every=score_log_every)
 
     band_vals, band_kx, band_ky = band_scores(rate_maps, int(args.res), float(options.box_width))
@@ -1307,6 +1387,8 @@ def run_classify(args) -> Path:
         band_cutoff = float("nan")
     band_units = np.where(band_vals >= band_cutoff)[0] if np.isfinite(band_cutoff) else np.array([], dtype=int)
 
+    # Save both raw scores and derived class labels so later analyses can be
+    # rerun without repeating the slow gridness scoring step.
     np.savez_compressed(
         out_dir / "gridness_data.npz",
         shift_mode=np.array("time"),
@@ -1368,25 +1450,33 @@ def run_classify(args) -> Path:
 
 
 def load_gridness_payload(path: str | Path) -> Dict[str, np.ndarray]:
+    # Read the compressed classification output produced by run_classify.
     with np.load(path, allow_pickle=True) as data:
         return {k: data[k] for k in data.files}
 
 
 def class_arrays(grid_data: Dict[str, np.ndarray], Ng: int, fallback: bool = True) -> Dict[str, np.ndarray]:
+    # Different scripts historically used slightly different key names. This
+    # helper accepts all known aliases and normalizes them into one dictionary.
     def get(*names):
         for name in names:
             if name in grid_data:
                 arr = np.asarray(grid_data[name], dtype=int).reshape(-1)
+                # Keep only valid unit indices for the currently loaded model.
                 arr = arr[(arr >= 0) & (arr < Ng)]
                 if arr.size:
                     return np.unique(arr)
         return np.array([], dtype=int)
 
+    # Primary classes used by crossing: predictive PGCs and standard/zero-lag GCs.
     pred = get("classes_predictive", "predictive")
     retro = get("classes_retrospective", "classes_phase_precession", "retrospective")
     standard = get("classes_standard", "classes_phase_locked", "classes_normal", "normal")
     low = get("low_grid_units", "classes_low_grid", "non_grid")
     band = get("band_units", "classes_band")
+
+    # Fallbacks keep smoke tests and tiny toy models from crashing. For real
+    # analyses with valid classification files, these fallbacks should not fire.
     if fallback and pred.size == 0:
         best_cm = np.asarray(grid_data.get("best_cm", np.full(Ng, np.nan)), dtype=float)
         best_scores = np.asarray(grid_data.get("best_scores", np.zeros(Ng)), dtype=float)
@@ -1687,6 +1777,8 @@ def predictive_units_for_preferred_horizon(
 
 
 def safe_pearson_corr(a: np.ndarray, b: np.ndarray) -> float:
+    # Correlate two population activity vectors after mean-centering each one.
+    # In crossing, a and b are same-class activity vectors from trajectory A/B.
     a = np.asarray(a, dtype=float).reshape(-1)
     b = np.asarray(b, dtype=float).reshape(-1)
     if a.size < 2 or b.size < 2:
@@ -1700,6 +1792,7 @@ def safe_pearson_corr(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def bootstrap_ci(values: np.ndarray, rng: np.random.Generator, n_boot: int = 2000) -> Tuple[float, float]:
+    # Nonparametric 95% CI over pair-level effects or group-level correlations.
     vals = np.asarray(values, dtype=float)
     vals = vals[np.isfinite(vals)]
     if vals.size == 0:
@@ -1714,6 +1807,8 @@ def bootstrap_ci(values: np.ndarray, rng: np.random.Generator, n_boot: int = 200
 
 
 def summarize_corr_rows(rows: Sequence[Dict[str, object]], rng: np.random.Generator) -> Tuple[List[Dict[str, object]], Dict[str, object]]:
+    # First summarize each signal class independently: mean GC correlation,
+    # mean PGC correlation, band control correlation, etc.
     signals = sorted({str(row.get("signal")) for row in rows})
     summary_rows: List[Dict[str, object]] = []
     for signal in signals:
@@ -1731,6 +1826,10 @@ def summarize_corr_rows(rows: Sequence[Dict[str, object]], rng: np.random.Genera
             }
         )
 
+    # Then build the paired contrast. Each pair contributes one number:
+    #   corr(zero-lag GC population) - corr(PGC population)
+    # Positive values mean standard grid cells overlap more than PGCs at the
+    # same crossing position.
     pred_by_pair = {
         int(row["pair_id"]): float(row["correlation"])
         for row in rows
@@ -1761,12 +1860,22 @@ def run_crossing(args) -> Path:
     configure_logging(out_dir, "crossing.log")
     log_info("[crossing] checkpoint=%s", args.checkpoint_path)
     log_info("[crossing] gridness=%s", args.gridness_path)
+
+    # Load the trained RNN and set its sequence length long enough to contain
+    # the crossing plus the requested future-horizon metadata.
+    min_sequence_length = max(int(args.future_horizon) * 3 + 2, 32)
+    if getattr(args, "crossing_step", None) is not None:
+        min_sequence_length = max(min_sequence_length, int(args.crossing_step) + int(args.future_horizon) + 2)
+    requested_sequence_length = getattr(args, "sequence_length", None)
+    sequence_length = max(min_sequence_length, int(requested_sequence_length)) if requested_sequence_length else min_sequence_length
     model, place_cells, options, payload = load_analysis_model(
         args.checkpoint_path,
         device=device,
-        sequence_length=max(int(args.future_horizon) * 3 + 2, 32),
+        sequence_length=sequence_length,
         batch_size=args.batch_size,
     )
+
+    # Load unit classes from gridness_data.npz: predictive, standard, band, etc.
     grid_data = load_gridness_payload(args.gridness_path)
     units = class_arrays(grid_data, int(options.Ng), fallback=bool(args.allow_fallback_units))
     log_info(
@@ -1777,6 +1886,8 @@ def run_crossing(args) -> Path:
     )
     log_info("[crossing] checkpoint_format=%s velocity_dim=%d", payload.get("format", "?"), int(options.velocity_dim))
 
+    # These are the within-population vectors that will be correlated between
+    # the two trajectories in each matched pair.
     groups: Dict[str, np.ndarray] = {
         "predictive": units["predictive"],
         "standard_grid": units["standard"],
@@ -1784,8 +1895,13 @@ def run_crossing(args) -> Path:
         "band": units["band"],
     }
     pred_count = max(1, int(units["predictive"].size))
+
+    # Optional count-matched standard-grid control. It uses the same number of
+    # units as the predictive group when enough standard units are available.
     if units["standard"].size:
         groups["standard_grid_matched_count"] = units["standard"][: min(pred_count, units["standard"].size)]
+
+    # Random matched-count controls sample non-predictive units repeatedly.
     random_candidates = np.setdiff1d(np.arange(int(options.Ng), dtype=int), units["predictive"])
 
     rows: List[Dict[str, object]] = []
@@ -1794,6 +1910,8 @@ def run_crossing(args) -> Path:
     start_time = time.time()
     with torch.no_grad():
         for batch_idx in range(max(1, int(args.n_batches))):
+            # Generate many independent X-crossing pairs. Within each pair,
+            # current position at crossing_step is identical while heading differs.
             batch = generate_crossing_batch(
                 options,
                 place_cells,
@@ -1806,7 +1924,11 @@ def run_crossing(args) -> Path:
                 future_horizon=int(args.future_horizon),
             )
             assert_crossing_batch(batch, float(args.min_angle_deg))
+
+            # Run the RNN and extract the hidden grid population over time.
             states = model.g(batch.inputs).detach().cpu().numpy()
+
+            # The main analysis is only at this single matched crossing time.
             t = int(batch.crossing_step)
             fut_t = min(t + int(args.future_horizon), states.shape[0] - 1)
             for local_pid in np.unique(batch.pair_ids):
@@ -1815,6 +1937,9 @@ def run_crossing(args) -> Path:
                     continue
                 a, b = int(idx[0]), int(idx[1])
                 pair_id = pair_offset + int(local_pid)
+
+                # This is not used in the correlation itself; it documents how
+                # far apart the two future physical positions become.
                 future_sep_cm = float(np.linalg.norm(batch.positions_np[fut_t, a] - batch.positions_np[fut_t, b]) * 100.0)
                 base = {
                     "pair_id": pair_id,
@@ -1826,6 +1951,9 @@ def run_crossing(args) -> Path:
                 }
                 for signal, unit_idx in groups.items():
                     unit_idx = np.asarray(unit_idx, dtype=int)
+
+                    # Core statistic: correlate same-class population vectors
+                    # between trajectory A and trajectory B at the crossing point.
                     corr = safe_pearson_corr(states[t, a, unit_idx], states[t, b, unit_idx]) if unit_idx.size else float("nan")
                     rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
                 if random_candidates.size:
@@ -1834,6 +1962,9 @@ def run_crossing(args) -> Path:
                         n = min(pred_count, random_candidates.size)
                         draw = rng.choice(random_candidates, size=n, replace=False)
                         random_corrs.append(safe_pearson_corr(states[t, a, draw], states[t, b, draw]))
+
+                    # Store the average over repeated random draws as one
+                    # random-control value for this trajectory pair.
                     rows.append(
                         {
                             **base,
@@ -1852,7 +1983,11 @@ def run_crossing(args) -> Path:
                     format_duration(time.time() - start_time),
                 )
 
+    # Compute per-signal means and the paired GC-minus-PGC comparison.
     summary_rows, comparison = summarize_corr_rows(rows, rng)
+
+    # Pair-level CSV is the most detailed output; summary CSV/JSON are the
+    # convenient reporting layer.
     write_csv(out_dir / "crossing_pair_metrics.csv", rows)
     write_csv(out_dir / "crossing_summary.csv", summary_rows)
     payload = {
@@ -1898,9 +2033,14 @@ def _friendly_signal_name(signal: str) -> str:
 
 
 def run_plot_crossing(args) -> Path:
+    # Plotting is a pure post-processing step: it reads the CSVs written by
+    # run_crossing and does not rerun the model.
     crossing_dir = Path(args.crossing_dir)
     out_dir = ensure_dir(Path(args.output_dir) if args.output_dir else crossing_dir)
     configure_logging(out_dir, "plot_crossing.log")
+
+    # Detailed pair-level rows contain one correlation per pair per signal.
+    # Summary rows contain means/CIs per signal.
     pair_path = crossing_dir / "crossing_pair_metrics.csv"
     summary_path = crossing_dir / "crossing_summary.csv"
     if not pair_path.exists():
@@ -1918,6 +2058,9 @@ def run_plot_crossing(args) -> Path:
 
     pair_rows = read_csv_rows(pair_path)
     summary_rows = read_csv_rows(summary_path)
+
+    # Keep the visual order stable across runs, even if some control groups are
+    # absent because a classification produced too few units.
     signal_order = [
         "standard_grid",
         "standard_grid_matched_count",
@@ -1935,6 +2078,7 @@ def run_plot_crossing(args) -> Path:
     except Exception:
         pass
 
+    # Build the bar plot of mean within-population crossing correlations.
     summary_by_signal = {str(row.get("signal")): row for row in summary_rows}
     means = np.asarray([_csv_float(summary_by_signal[s], "mean_correlation") for s in ordered_signals], dtype=float)
     ci_low = np.asarray([_csv_float(summary_by_signal[s], "ci95_low") for s in ordered_signals], dtype=float)
@@ -1965,6 +2109,8 @@ def run_plot_crossing(args) -> Path:
     fig.savefig(summary_png, dpi=int(args.dpi))
     plt.close(fig)
 
+    # Pull out pair-matched predictive and standard-grid correlations so the
+    # distribution and paired-difference plots compare the same trajectory pairs.
     pred_by_pair = {
         int(row["pair_id"]): _csv_float(row, "correlation")
         for row in pair_rows
@@ -1983,6 +2129,8 @@ def run_plot_crossing(args) -> Path:
     lo, hi = bootstrap_ci(diffs, rng, n_boot=2000)
     mean_diff = float(np.mean(diffs)) if diffs.size else float("nan")
 
+    # New interpretability plot: show the raw GC and PGC correlation
+    # distributions directly, instead of only showing their difference.
     distribution_png = None
     diff_png = None
     scatter_png = None
@@ -1990,6 +2138,8 @@ def run_plot_crossing(args) -> Path:
     finite_std = std[np.isfinite(std)]
     if finite_pred.size and finite_std.size:
         combined = np.concatenate([finite_std, finite_pred])
+
+        # Use shared bins so the two histograms are visually comparable.
         bins = np.linspace(float(np.min(combined)), float(np.max(combined)), max(5, int(args.hist_bins)))
         if np.allclose(bins[0], bins[-1]):
             bins = np.linspace(bins[0] - 0.05, bins[0] + 0.05, max(5, int(args.hist_bins)))
@@ -2049,6 +2199,8 @@ def run_plot_crossing(args) -> Path:
         fig.savefig(distribution_png, dpi=int(args.dpi), bbox_inches="tight")
         plt.close(fig)
 
+    # Paired-difference plot: one value per trajectory pair, equal to
+    # corr(GC_A, GC_B) - corr(PGC_A, PGC_B).
     if diffs.size:
         fig, ax = plt.subplots(figsize=(7.0, 4.6))
         ax.hist(diffs, bins=int(args.hist_bins), color="#5c677d", alpha=0.82, edgecolor="white")
@@ -2065,6 +2217,8 @@ def run_plot_crossing(args) -> Path:
         fig.savefig(diff_png, dpi=int(args.dpi))
         plt.close(fig)
 
+        # Scatter plot: points above the diagonal are pairs where GC similarity
+        # exceeds PGC similarity.
         fig, ax = plt.subplots(figsize=(5.4, 5.2))
         ax.scatter(pred, std, s=8, alpha=0.35, color="#4a5568", linewidths=0)
         finite = np.concatenate([pred[np.isfinite(pred)], std[np.isfinite(std)]])
@@ -2104,6 +2258,183 @@ def run_plot_crossing(args) -> Path:
         lo,
         hi,
     )
+    return out_dir
+
+
+def _plot_crossing_step_sweep_curves(
+    curves: Dict[str, Sequence[Dict[str, object]]],
+    out_dir: Path,
+    title: Optional[str],
+    dpi: int,
+) -> Optional[Path]:
+    """Plot one or more crossing-step sweep curves."""
+    if not curves:
+        return None
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:
+        raise RuntimeError("crossing-step sweep plotting needs matplotlib installed.") from exc
+
+    try:
+        plt.style.use("seaborn-v0_8-whitegrid")
+    except Exception:
+        pass
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    palette = ["#2a9d8f", "#e76f51", "#577590", "#8d99ae", "#f4a261", "#6d597a"]
+    for i, (label, rows) in enumerate(curves.items()):
+        finite_rows = []
+        for row in rows:
+            step = _csv_float(row, "crossing_step")
+            mean = _csv_float(row, "mean_standard_minus_predictive_corr")
+            lo = _csv_float(row, "ci95_low")
+            hi = _csv_float(row, "ci95_high")
+            if np.isfinite(step) and np.isfinite(mean):
+                finite_rows.append((int(step), float(mean), float(lo), float(hi)))
+        finite_rows.sort(key=lambda x: x[0])
+        if not finite_rows:
+            continue
+        steps = np.asarray([x[0] for x in finite_rows], dtype=float)
+        means = np.asarray([x[1] for x in finite_rows], dtype=float)
+        lows = np.asarray([x[2] for x in finite_rows], dtype=float)
+        highs = np.asarray([x[3] for x in finite_rows], dtype=float)
+        color = palette[i % len(palette)]
+        ax.plot(steps, means, marker="o", linewidth=2.0, markersize=4.5, color=color, label=label)
+        if np.isfinite(lows).all() and np.isfinite(highs).all():
+            ax.fill_between(steps, lows, highs, color=color, alpha=0.18, linewidth=0)
+    ax.axhline(0.0, color="#222222", linewidth=0.9, linestyle="--")
+    ax.set_xlabel("Crossing step")
+    ax.set_ylabel("Mean zero-lag GC corr - PGC corr")
+    ax.set_title(title or "X-crossing step sweep")
+    ax.legend(frameon=True)
+    fig.tight_layout()
+    plot_path = out_dir / "crossing_step_sweep.png"
+    fig.savefig(plot_path, dpi=int(dpi))
+    plt.close(fig)
+    return plot_path
+
+
+def run_crossing_step_sweep(args) -> Path:
+    steps = _to_int_list(args.crossing_steps)
+    if not steps:
+        raise ValueError("--crossing_steps must contain at least one step.")
+    out_dir = ensure_dir(args.output_dir)
+    configure_logging(out_dir, "crossing_step_sweep.log")
+    log_info("[crossing_step_sweep] checkpoint=%s", args.checkpoint_path)
+    log_info("[crossing_step_sweep] gridness=%s", args.gridness_path)
+    log_info("[crossing_step_sweep] steps=%s", " ".join(str(s) for s in steps))
+
+    rows: List[Dict[str, object]] = []
+    start_time = time.time()
+    for i, step in enumerate(steps):
+        step_dir = out_dir / f"crossing_step_{int(step):03d}"
+        step_args = argparse.Namespace(**vars(args))
+        step_args.output_dir = str(step_dir)
+        step_args.crossing_step = int(step)
+        step_args.log_every_batches = int(args.log_every_batches)
+
+        # Keep the RNN rollout long enough that the requested crossing_step is
+        # not clipped by generate_crossing_batch.
+        min_len = max(32, int(step) + int(args.future_horizon) + 2)
+        requested_len = getattr(args, "sequence_length", None)
+        step_args.sequence_length = max(min_len, int(requested_len)) if requested_len else min_len
+
+        log_info("[crossing_step_sweep] running step=%d (%d/%d)", int(step), i + 1, len(steps))
+        run_crossing(step_args)
+        metrics = read_json(step_dir / "summary.json")
+        comparison = metrics.get("comparison", {})
+        summary_by_signal = {
+            str(row.get("signal")): row
+            for row in metrics.get("summary_rows", [])
+            if isinstance(row, dict)
+        }
+
+        def signal_mean(signal: str) -> float:
+            row = summary_by_signal.get(signal, {})
+            return float(row.get("mean_correlation", np.nan)) if row else float("nan")
+
+        rows.append(
+            {
+                "crossing_step": int(step),
+                "n_pairs": int(metrics.get("n_pairs", 0)),
+                "mean_standard_minus_predictive_corr": float(
+                    comparison.get("mean_standard_minus_predictive_corr", np.nan)
+                ),
+                "ci95_low": float(comparison.get("ci95_low", np.nan)),
+                "ci95_high": float(comparison.get("ci95_high", np.nan)),
+                "fraction_standard_gt_predictive": float(
+                    comparison.get("fraction_standard_gt_predictive", np.nan)
+                ),
+                "mean_standard_grid_corr": signal_mean("standard_grid"),
+                "mean_predictive_corr": signal_mean("predictive"),
+                "mean_band_corr": signal_mean("band"),
+                "step_output_dir": str(step_dir),
+            }
+        )
+
+        # Restore sweep logging after run_crossing temporarily reconfigured the
+        # logger to write inside the per-step output directory.
+        configure_logging(out_dir, "crossing_step_sweep.log")
+        elapsed = format_duration(time.time() - start_time)
+        log_info(
+            "[crossing_step_sweep] step=%d mean=%.4f ci95=[%.4f, %.4f] elapsed=%s",
+            int(step),
+            float(rows[-1]["mean_standard_minus_predictive_corr"]),
+            float(rows[-1]["ci95_low"]),
+            float(rows[-1]["ci95_high"]),
+            elapsed,
+        )
+
+    write_csv(out_dir / "crossing_step_sweep_metrics.csv", rows)
+    plot_path = _plot_crossing_step_sweep_curves(
+        {str(args.label or Path(args.checkpoint_path).stem): rows},
+        out_dir,
+        args.title,
+        int(args.dpi),
+    )
+    payload = {
+        "checkpoint_path": str(args.checkpoint_path),
+        "gridness_path": str(args.gridness_path),
+        "crossing_steps": steps,
+        "metrics_path": str(out_dir / "crossing_step_sweep_metrics.csv"),
+        "plot_path": str(plot_path) if plot_path else None,
+        "rows": rows,
+    }
+    write_json(out_dir / "crossing_step_sweep_summary.json", payload)
+    log_info("[crossing_step_sweep] wrote %s", out_dir)
+    return out_dir
+
+
+def run_plot_crossing_step_sweeps(args) -> Path:
+    out_dir = ensure_dir(args.output_dir)
+    configure_logging(out_dir, "plot_crossing_step_sweeps.log")
+    curves: Dict[str, Sequence[Dict[str, object]]] = {}
+    for spec in args.sweep_dir:
+        label, path_text = (spec.split("=", 1) if "=" in spec else (Path(spec).name, spec))
+        sweep_dir = Path(path_text)
+        metrics_path = sweep_dir / "crossing_step_sweep_metrics.csv"
+        if not metrics_path.exists():
+            raise FileNotFoundError(f"Missing sweep metrics: {metrics_path}")
+        curves[label] = read_csv_rows(metrics_path)
+        log_info("[plot_crossing_step_sweeps] loaded %s from %s", label, metrics_path)
+    plot_path = _plot_crossing_step_sweep_curves(curves, out_dir, args.title, int(args.dpi))
+    combined_rows: List[Dict[str, object]] = []
+    for label, rows in curves.items():
+        for row in rows:
+            combined_rows.append({"label": label, **row})
+    write_csv(out_dir / "crossing_step_sweep_comparison_metrics.csv", combined_rows)
+    write_json(
+        out_dir / "crossing_step_sweep_comparison_summary.json",
+        {
+            "sweep_dirs": list(args.sweep_dir),
+            "plot_path": str(plot_path) if plot_path else None,
+            "metrics_path": str(out_dir / "crossing_step_sweep_comparison_metrics.csv"),
+        },
+    )
+    log_info("[plot_crossing_step_sweeps] wrote %s", out_dir)
     return out_dir
 
 
@@ -3180,6 +3511,7 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_cross.add_argument("--device", default=None)
     p_cross.add_argument("--batch_size", type=int, default=128)
     p_cross.add_argument("--n_batches", type=int, default=8)
+    p_cross.add_argument("--sequence_length", type=int, default=None)
     p_cross.add_argument("--crossing_step", type=int, default=None)
     p_cross.add_argument("--future_horizon", type=int, default=8)
     p_cross.add_argument("--min_angle_deg", type=float, default=30.0)
@@ -3197,6 +3529,38 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_plot_cross.add_argument("--dpi", type=int, default=200)
     p_plot_cross.add_argument("--hist_bins", type=int, default=50)
     p_plot_cross.add_argument("--random_seed", type=int, default=0)
+
+    p_step_sweep = sub.add_parser("crossing_step_sweep", help="Run X-crossing analysis across multiple crossing steps.")
+    p_step_sweep.add_argument("--checkpoint_path", required=True)
+    p_step_sweep.add_argument("--gridness_path", required=True)
+    p_step_sweep.add_argument("--output_dir", required=True)
+    p_step_sweep.add_argument("--device", default=None)
+    p_step_sweep.add_argument("--batch_size", type=int, default=128)
+    p_step_sweep.add_argument("--n_batches", type=int, default=8)
+    p_step_sweep.add_argument("--sequence_length", type=int, default=None)
+    p_step_sweep.add_argument("--crossing_steps", default="8 10 12 14 15 16 18 20 22")
+    p_step_sweep.add_argument("--future_horizon", type=int, default=8)
+    p_step_sweep.add_argument("--min_angle_deg", type=float, default=90.0)
+    p_step_sweep.add_argument("--max_angle_deg", type=float, default=90.0)
+    p_step_sweep.add_argument("--line_extent", type=float, default=0.75)
+    p_step_sweep.add_argument("--matched_random_repeats", type=int, default=20)
+    p_step_sweep.add_argument("--log_every_batches", type=int, default=5)
+    p_step_sweep.add_argument("--random_seed", type=int, default=0)
+    p_step_sweep.add_argument("--allow_fallback_units", action=argparse.BooleanOptionalAction, default=True)
+    p_step_sweep.add_argument("--label", default=None)
+    p_step_sweep.add_argument("--title", default=None)
+    p_step_sweep.add_argument("--dpi", type=int, default=200)
+
+    p_step_sweep_plot = sub.add_parser("plot_crossing_step_sweeps", help="Overlay one or more crossing-step sweep outputs.")
+    p_step_sweep_plot.add_argument(
+        "--sweep_dir",
+        action="append",
+        required=True,
+        help="Sweep directory, optionally as LABEL=DIR. Repeat for trained/random overlays.",
+    )
+    p_step_sweep_plot.add_argument("--output_dir", required=True)
+    p_step_sweep_plot.add_argument("--title", default=None)
+    p_step_sweep_plot.add_argument("--dpi", type=int, default=300)
 
     p_int = sub.add_parser("intervene", help="Ablate, scramble, and swap predictive activity pre-branch.")
     p_int.add_argument("--checkpoint_path", required=True)
@@ -3237,6 +3601,10 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         run_crossing(args)
     elif args.cmd == "plot_crossing":
         run_plot_crossing(args)
+    elif args.cmd == "crossing_step_sweep":
+        run_crossing_step_sweep(args)
+    elif args.cmd == "plot_crossing_step_sweeps":
+        run_plot_crossing_step_sweeps(args)
     elif args.cmd == "intervene":
         run_intervene(args)
     elif args.cmd == "smoke":

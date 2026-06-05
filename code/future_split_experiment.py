@@ -2260,10 +2260,22 @@ def run_same_bin_population_corr(args) -> Path:
     log_info("[same_bin] checkpoint=%s", args.checkpoint_path)
     log_info("[same_bin] gridness=%s", args.gridness_path)
 
+    # same_bin is the pasted-code-style analysis path. By default it samples
+    # ordinary open-field trajectories and pairs trials that land in the same
+    # spatial bin. The x_crossing source keeps the pasted-style outputs, but
+    # replaces those random same-bin pairs with our exact controlled X pairs.
+    trajectory_source = str(getattr(args, "same_bin_trajectory_source", "random_walk"))
     timestep_arg = getattr(args, "same_bin_timestep", None)
     if timestep_arg is None:
         timestep_arg = getattr(args, "crossing_step", None)
     min_sequence_length = max(2, int(args.sequence_length or 0), int(timestep_arg if timestep_arg is not None else 0) + 1)
+    if trajectory_source == "x_crossing":
+        # The X generator needs room after the crossing for the requested future
+        # horizon metadata; otherwise it will clip the later future point.
+        if timestep_arg is not None:
+            min_sequence_length = max(min_sequence_length, int(timestep_arg) + int(args.future_horizon) + 2)
+        else:
+            min_sequence_length = max(min_sequence_length, int(args.future_horizon) * 3 + 2)
     model, place_cells, options, payload = load_analysis_model(
         args.checkpoint_path,
         device=device,
@@ -2280,20 +2292,23 @@ def run_same_bin_population_corr(args) -> Path:
     units = class_arrays(grid_data, int(options.Ng), fallback=bool(args.allow_fallback_units))
     groups, random_candidates, pred_count = _group_unit_indices_for_population_corr(units, int(options.Ng))
     log_info(
-        "[same_bin] device=%s checkpoint_format=%s class_counts=%s timestep=%d res=%d pairs_per_bin=%d",
+        "[same_bin] device=%s checkpoint_format=%s class_counts=%s source=%s timestep=%d res=%d pairs_per_bin=%d",
         device,
         payload.get("format", "?"),
         {k: int(v.size) for k, v in units.items()},
+        trajectory_source,
         timestep,
         int(args.same_bin_res),
         int(args.same_bin_pairs_per_bin),
     )
 
-    traj_options = make_options(**options_to_dict(options))
-    traj_options.batch_size = int(args.batch_size)
-    traj_options.sequence_length = int(options.sequence_length)
-    traj_options.device = device
-    traj_gen = TrajectoryGenerator(traj_options, place_cells)
+    traj_gen: Optional[TrajectoryGenerator] = None
+    if trajectory_source == "random_walk":
+        traj_options = make_options(**options_to_dict(options))
+        traj_options.batch_size = int(args.batch_size)
+        traj_options.sequence_length = int(options.sequence_length)
+        traj_options.device = device
+        traj_gen = TrajectoryGenerator(traj_options, place_cells)
     rows: List[Dict[str, object]] = []
     pair_offset = 0
     res = int(args.same_bin_res)
@@ -2304,59 +2319,130 @@ def run_same_bin_population_corr(args) -> Path:
     model.eval()
     with torch.no_grad():
         for batch_idx in range(max(1, int(args.n_batches))):
-            inputs2, pos_t, _ = traj_gen.get_test_batch(batch_size=int(args.batch_size))
-            v2, init = inputs2
-            v = pad_zero_cue(v2.to(device), int(getattr(options, "cue_dim", 0)))
-            states = model.g((v, init.to(device))).detach().cpu().numpy()
-            pos_np = pos_t.detach().cpu().numpy().astype(np.float32)
-            vel_np = v2.detach().cpu().numpy().astype(np.float32)
+            if trajectory_source == "x_crossing":
+                # Exact controlled-X source: every stored pair is already
+                # position-matched at timestep, with angle controlled by the
+                # same min/max angle flags used by the original crossing mode.
+                batch = generate_crossing_batch(
+                    options,
+                    place_cells,
+                    batch_size=int(args.batch_size),
+                    rng=rng,
+                    crossing_step=timestep,
+                    min_angle_deg=float(args.min_angle_deg),
+                    max_angle_deg=float(args.max_angle_deg),
+                    line_extent=float(args.line_extent),
+                    future_horizon=int(args.future_horizon),
+                )
+                assert_crossing_batch(batch, float(args.min_angle_deg))
+                states = model.g(batch.inputs).detach().cpu().numpy()
+                pos_np = batch.positions_np
+                vel_np = batch.velocity_np
+            else:
+                assert traj_gen is not None
+                inputs2, pos_t, _ = traj_gen.get_test_batch(batch_size=int(args.batch_size))
+                v2, init = inputs2
+                v = pad_zero_cue(v2.to(device), int(getattr(options, "cue_dim", 0)))
+                states = model.g((v, init.to(device))).detach().cpu().numpy()
+                pos_np = pos_t.detach().cpu().numpy().astype(np.float32)
+                vel_np = v2.detach().cpu().numpy().astype(np.float32)
             p = pos_np[timestep]
             g = states[timestep]
             mov = vel_np[timestep]
             binned_pos = np.floor(((p + float(options.box_width) / 2.0) / float(options.box_width)) * float(res)).astype(int)
             binned_pos = np.clip(binned_pos, 0, res - 1)
 
-            for i in range(valid_start, valid_stop):
-                for j in range(valid_start, valid_stop):
-                    ids = np.where((binned_pos[:, 0] == i) & (binned_pos[:, 1] == j))[0]
-                    if ids.size < 2:
+            if trajectory_source == "x_crossing":
+                for local_pid in np.unique(batch.pair_ids):
+                    idx = np.where(batch.pair_ids == local_pid)[0]
+                    if idx.size != 2:
                         continue
-                    n_draws = min(int(args.same_bin_pairs_per_bin), int(ids.size * (ids.size - 1) // 2))
-                    for _ in range(n_draws):
-                        a, b = rng.choice(ids, size=2, replace=False)
-                        pair_id = pair_offset
-                        pair_offset += 1
-                        movement_distance = float(np.linalg.norm(mov[a] - mov[b]))
-                        pos_distance_cm = float(np.linalg.norm(p[a] - p[b]) * 100.0)
-                        base = {
-                            "pair_id": int(pair_id),
-                            "batch": int(batch_idx),
-                            "crossing_step": int(timestep),
-                            "timestep": int(timestep),
-                            "bin_x": int(i),
-                            "bin_y": int(j),
-                            "position_distance_cm": pos_distance_cm,
-                            "movement_vector_distance": movement_distance,
-                            "movement_angle_sep_deg": movement_angle_sep_deg(mov[a], mov[b]),
-                        }
-                        for signal, unit_idx in groups.items():
-                            unit_idx = np.asarray(unit_idx, dtype=int)
-                            corr = safe_pearson_corr(g[a, unit_idx], g[b, unit_idx]) if unit_idx.size else float("nan")
-                            rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
-                        if random_candidates.size:
-                            random_corrs = []
-                            for _rep in range(max(1, int(args.matched_random_repeats))):
-                                n = min(pred_count, random_candidates.size)
-                                draw = rng.choice(random_candidates, size=n, replace=False)
-                                random_corrs.append(safe_pearson_corr(g[a, draw], g[b, draw]))
-                            rows.append(
-                                {
-                                    **base,
-                                    "signal": "random_matched_count",
-                                    "n_units": int(min(pred_count, random_candidates.size)),
-                                    "correlation": float(np.nanmean(random_corrs)),
-                                }
-                            )
+                    a, b = int(idx[0]), int(idx[1])
+                    i, j = int(binned_pos[a, 0]), int(binned_pos[a, 1])
+                    if not (valid_start <= i < valid_stop and valid_start <= j < valid_stop):
+                        continue
+                    pair_id = pair_offset
+                    pair_offset += 1
+                    fut_t = min(timestep + int(args.future_horizon), pos_np.shape[0] - 1)
+                    movement_distance = float(np.linalg.norm(mov[a] - mov[b]))
+                    pos_distance_cm = float(np.linalg.norm(p[a] - p[b]) * 100.0)
+                    base = {
+                        "pair_id": int(pair_id),
+                        "batch": int(batch_idx),
+                        "pairing_mode": "same_bin",
+                        "trajectory_source": trajectory_source,
+                        "crossing_step": int(timestep),
+                        "timestep": int(timestep),
+                        "bin_x": int(i),
+                        "bin_y": int(j),
+                        "position_distance_cm": pos_distance_cm,
+                        "movement_vector_distance": movement_distance,
+                        "movement_angle_sep_deg": movement_angle_sep_deg(mov[a], mov[b]),
+                        "angle_sep_deg": float(batch.angle_sep_deg[int(local_pid)]),
+                        "future_position_sep_cm": float(np.linalg.norm(pos_np[fut_t, a] - pos_np[fut_t, b]) * 100.0),
+                    }
+                    for signal, unit_idx in groups.items():
+                        unit_idx = np.asarray(unit_idx, dtype=int)
+                        corr = safe_pearson_corr(g[a, unit_idx], g[b, unit_idx]) if unit_idx.size else float("nan")
+                        rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
+                    if random_candidates.size:
+                        random_corrs = []
+                        for _rep in range(max(1, int(args.matched_random_repeats))):
+                            n = min(pred_count, random_candidates.size)
+                            draw = rng.choice(random_candidates, size=n, replace=False)
+                            random_corrs.append(safe_pearson_corr(g[a, draw], g[b, draw]))
+                        rows.append(
+                            {
+                                **base,
+                                "signal": "random_matched_count",
+                                "n_units": int(min(pred_count, random_candidates.size)),
+                                "correlation": float(np.nanmean(random_corrs)),
+                            }
+                        )
+            else:
+                for i in range(valid_start, valid_stop):
+                    for j in range(valid_start, valid_stop):
+                        ids = np.where((binned_pos[:, 0] == i) & (binned_pos[:, 1] == j))[0]
+                        if ids.size < 2:
+                            continue
+                        n_draws = min(int(args.same_bin_pairs_per_bin), int(ids.size * (ids.size - 1) // 2))
+                        for _ in range(n_draws):
+                            a, b = rng.choice(ids, size=2, replace=False)
+                            pair_id = pair_offset
+                            pair_offset += 1
+                            movement_distance = float(np.linalg.norm(mov[a] - mov[b]))
+                            pos_distance_cm = float(np.linalg.norm(p[a] - p[b]) * 100.0)
+                            base = {
+                                "pair_id": int(pair_id),
+                                "batch": int(batch_idx),
+                                "pairing_mode": "same_bin",
+                                "trajectory_source": trajectory_source,
+                                "crossing_step": int(timestep),
+                                "timestep": int(timestep),
+                                "bin_x": int(i),
+                                "bin_y": int(j),
+                                "position_distance_cm": pos_distance_cm,
+                                "movement_vector_distance": movement_distance,
+                                "movement_angle_sep_deg": movement_angle_sep_deg(mov[a], mov[b]),
+                            }
+                            for signal, unit_idx in groups.items():
+                                unit_idx = np.asarray(unit_idx, dtype=int)
+                                corr = safe_pearson_corr(g[a, unit_idx], g[b, unit_idx]) if unit_idx.size else float("nan")
+                                rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
+                            if random_candidates.size:
+                                random_corrs = []
+                                for _rep in range(max(1, int(args.matched_random_repeats))):
+                                    n = min(pred_count, random_candidates.size)
+                                    draw = rng.choice(random_candidates, size=n, replace=False)
+                                    random_corrs.append(safe_pearson_corr(g[a, draw], g[b, draw]))
+                                rows.append(
+                                    {
+                                        **base,
+                                        "signal": "random_matched_count",
+                                        "n_units": int(min(pred_count, random_candidates.size)),
+                                        "correlation": float(np.nanmean(random_corrs)),
+                                    }
+                                )
             if (batch_idx + 1) % max(1, int(args.log_every_batches)) == 0:
                 log_info(
                     "[same_bin] batch=%d/%d sampled_pairs=%d rows=%d elapsed=%s",
@@ -2392,6 +2478,7 @@ def run_same_bin_population_corr(args) -> Path:
         )
     payload = {
         "pairing_mode": "same_bin",
+        "same_bin_trajectory_source": trajectory_source,
         "checkpoint_path": str(args.checkpoint_path),
         "gridness_path": str(args.gridness_path),
         "n_pairs": int(pair_offset),
@@ -3752,6 +3839,7 @@ def run_smoke(args) -> Path:
         log_every_batches=1,
         random_seed=15,
         allow_fallback_units=True,
+        same_bin_trajectory_source="random_walk",
         same_bin_timestep=None,
         same_bin_res=8,
         same_bin_pairs_per_bin=2,
@@ -3782,6 +3870,7 @@ def run_smoke(args) -> Path:
         log_every_batches=1,
         random_seed=16,
         allow_fallback_units=True,
+        same_bin_trajectory_source="random_walk",
         same_bin_timestep=6,
         same_bin_res=5,
         same_bin_pairs_per_bin=1,
@@ -3792,6 +3881,37 @@ def run_smoke(args) -> Path:
         dpi=100,
     )
     same_bin_dir = run_crossing(same_bin_args)
+    configure_logging(out_dir, "smoke.log")
+
+    same_bin_x_args = argparse.Namespace(
+        checkpoint_path=str(full_ckpt),
+        gridness_path=str(gridness_path),
+        output_dir=str(out_dir / "same_bin_x_crossing"),
+        device="cpu",
+        batch_size=8,
+        n_batches=1,
+        sequence_length=12,
+        pairing_mode="same_bin",
+        crossing_step=None,
+        future_horizon=4,
+        min_angle_deg=60.0,
+        max_angle_deg=90.0,
+        line_extent=0.55,
+        matched_random_repeats=2,
+        log_every_batches=1,
+        random_seed=18,
+        allow_fallback_units=True,
+        same_bin_trajectory_source="x_crossing",
+        same_bin_timestep=6,
+        same_bin_res=5,
+        same_bin_pairs_per_bin=1,
+        same_bin_border_buffer=0.0,
+        same_bin_movement_bins=4,
+        same_bin_plot=True,
+        title="Smoke same-bin exact-X population correlation",
+        dpi=100,
+    )
+    same_bin_x_dir = run_crossing(same_bin_x_args)
     configure_logging(out_dir, "smoke.log")
 
     intervene_args = argparse.Namespace(
@@ -3832,6 +3952,11 @@ def run_smoke(args) -> Path:
         same_bin_dir / "crossing_summary.csv",
         same_bin_dir / "same_bin_movement_binned_metrics.csv",
         same_bin_dir / "same_bin_heatmaps.npz",
+        same_bin_x_dir / "crossing_metrics.json",
+        same_bin_x_dir / "crossing_pair_metrics.csv",
+        same_bin_x_dir / "crossing_summary.csv",
+        same_bin_x_dir / "same_bin_movement_binned_metrics.csv",
+        same_bin_x_dir / "same_bin_heatmaps.npz",
         intervene_dir / "intervention_metrics.json",
         intervene_dir / "intervention_metrics.csv",
     ]
@@ -3976,6 +4101,12 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_cross.add_argument("--log_every_batches", type=int, default=5)
     p_cross.add_argument("--random_seed", type=int, default=0)
     p_cross.add_argument("--allow_fallback_units", action=argparse.BooleanOptionalAction, default=True)
+    p_cross.add_argument(
+        "--same_bin_trajectory_source",
+        default="random_walk",
+        choices=["random_walk", "x_crossing"],
+        help="For --pairing_mode same_bin, choose ordinary same-bin random-walk pairs or exact controlled-X pairs passed through the same-bin summaries.",
+    )
     p_cross.add_argument("--same_bin_timestep", type=int, default=None)
     p_cross.add_argument("--same_bin_res", type=int, default=44)
     p_cross.add_argument("--same_bin_pairs_per_bin", type=int, default=20)

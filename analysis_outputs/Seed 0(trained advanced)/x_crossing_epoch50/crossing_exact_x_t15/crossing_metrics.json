@@ -1,0 +1,71 @@
+{
+  "checkpoint_path": "Seed 0(trained advanced)/epoch_50.pth",
+  "gridness_path": "analysis_outputs/Seed 0(trained advanced)/x_crossing_epoch50/classify_zero_lag_strict/gridness_data.npz",
+  "n_pairs": 25600,
+  "class_counts": {
+    "predictive": 399,
+    "retrospective": 364,
+    "standard": 221,
+    "low_grid": 3112,
+    "band": 314
+  },
+  "comparison": {
+    "n_matched_pairs": 25600,
+    "mean_standard_minus_predictive_corr": 0.016644402060759116,
+    "ci95_low": 0.014709800305143926,
+    "ci95_high": 0.018569277627972794,
+    "fraction_standard_gt_predictive": 0.555703125
+  },
+  "summary_rows": [
+    {
+      "signal": "band",
+      "n_pairs": 25600,
+      "mean_correlation": 0.6046438743838604,
+      "sem_correlation": 0.0006994228163890044,
+      "ci95_low": 0.6032008857996367,
+      "ci95_high": 0.6059854060806673
+    },
+    {
+      "signal": "predictive",
+      "n_pairs": 25600,
+      "mean_correlation": 0.6192490142723861,
+      "sem_correlation": 0.0005785927916776002,
+      "ci95_low": 0.6180642683719139,
+      "ci95_high": 0.6203864998863675
+    },
+    {
+      "signal": "random_matched_count",
+      "n_pairs": 25600,
+      "mean_correlation": 0.7195413906007289,
+      "sem_correlation": 0.0002280526023435431,
+      "ci95_low": 0.719128031475853,
+      "ci95_high": 0.7199652261460665
+    },
+    {
+      "signal": "retrospective",
+      "n_pairs": 25600,
+      "mean_correlation": 0.6844775412397149,
+      "sem_correlation": 0.00043533634837045426,
+      "ci95_low": 0.6835883403778529,
+      "ci95_high": 0.685404954427635
+    },
+    {
+      "signal": "standard_grid",
+      "n_pairs": 25600,
+      "mean_correlation": 0.6358934163331452,
+      "sem_correlation": 0.0008698590141514922,
+      "ci95_low": 0.6342534291168167,
+      "ci95_high": 0.6375081994347089
+    },
+    {
+      "signal": "standard_grid_matched_count",
+      "n_pairs": 25600,
+      "mean_correlation": 0.6358934163331452,
+      "sem_correlation": 0.0008698590141514922,
+      "ci95_low": 0.6342404549853184,
+      "ci95_high": 0.6376912845618854
+    }
+  ],
+  "pair_metrics_path": "analysis_outputs/Seed 0(trained advanced)/x_crossing_epoch50/crossing_exact_x_t15/crossing_pair_metrics.csv",
+  "summary_path": "analysis_outputs/Seed 0(trained advanced)/x_crossing_epoch50/crossing_exact_x_t15/crossing_summary.csv"
+}

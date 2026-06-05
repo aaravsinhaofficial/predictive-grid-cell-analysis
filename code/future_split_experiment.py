@@ -20,6 +20,8 @@ Subcommands:
              Run crossing over multiple crossing timepoints and plot the curve.
   plot_crossing_step_sweeps
              Overlay crossing-step sweep curves from multiple output dirs.
+  crossing --pairing_mode same_bin
+             Pasted-script-style same-spatial-bin population correlations.
   intervene  Ablate/scramble/swap matched unit groups before the branch.
   smoke      Tiny CPU-only end-to-end smoke test.
 """
@@ -1854,6 +1856,9 @@ def summarize_corr_rows(rows: Sequence[Dict[str, object]], rng: np.random.Genera
 
 
 def run_crossing(args) -> Path:
+    if str(getattr(args, "pairing_mode", "x_crossing")) == "same_bin":
+        return run_same_bin_population_corr(args)
+
     rng = set_seed(int(args.random_seed))
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     out_dir = ensure_dir(args.output_dir)
@@ -2010,6 +2015,405 @@ def run_crossing(args) -> Path:
         int(comparison.get("n_matched_pairs", 0)),
     )
     log_info("[crossing] wrote %s", out_dir)
+    return out_dir
+
+
+def _group_unit_indices_for_population_corr(units: Dict[str, np.ndarray], Ng: int) -> Tuple[Dict[str, np.ndarray], np.ndarray, int]:
+    groups: Dict[str, np.ndarray] = {
+        "predictive": np.asarray(units["predictive"], dtype=int),
+        "standard_grid": np.asarray(units["standard"], dtype=int),
+        "retrospective": np.asarray(units["retrospective"], dtype=int),
+        "band": np.asarray(units["band"], dtype=int),
+    }
+    pred_count = max(1, int(groups["predictive"].size))
+    if groups["standard_grid"].size:
+        groups["standard_grid_matched_count"] = groups["standard_grid"][: min(pred_count, groups["standard_grid"].size)]
+    random_candidates = np.setdiff1d(np.arange(int(Ng), dtype=int), groups["predictive"])
+    return groups, random_candidates, pred_count
+
+
+def movement_angle_sep_deg(v_a: np.ndarray, v_b: np.ndarray) -> float:
+    v_a = np.asarray(v_a, dtype=float).reshape(-1)
+    v_b = np.asarray(v_b, dtype=float).reshape(-1)
+    norm = float(np.linalg.norm(v_a) * np.linalg.norm(v_b))
+    if norm <= 1e-12 or not np.isfinite(norm):
+        return float("nan")
+    cosang = float(np.clip(np.dot(v_a, v_b) / norm, -1.0, 1.0))
+    return float(np.rad2deg(np.arccos(cosang)))
+
+
+def summarize_same_bin_rows(
+    rows: Sequence[Dict[str, object]],
+    res: int,
+    movement_bins: int,
+    rng: np.random.Generator,
+) -> Tuple[List[Dict[str, object]], Dict[str, np.ndarray], List[Dict[str, object]]]:
+    summary_rows, _ = summarize_corr_rows(rows, rng)
+    heatmaps: Dict[str, np.ndarray] = {}
+    for signal in sorted({str(row.get("signal")) for row in rows}):
+        arr = np.full((int(res), int(res)), np.nan, dtype=np.float32)
+        for i in range(int(res)):
+            for j in range(int(res)):
+                vals = [
+                    float(row.get("correlation", np.nan))
+                    for row in rows
+                    if row.get("signal") == signal and int(row.get("bin_x", -1)) == i and int(row.get("bin_y", -1)) == j
+                ]
+                vals = np.asarray(vals, dtype=float)
+                vals = vals[np.isfinite(vals)]
+                if vals.size:
+                    arr[i, j] = float(np.nanmedian(vals))
+        heatmaps[signal] = arr
+
+    std_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "standard_grid" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    pred_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "predictive" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    movement_by_pair = {
+        int(row["pair_id"]): float(row.get("movement_vector_distance", np.nan))
+        for row in rows
+        if row.get("signal") == "standard_grid"
+    }
+    common = sorted(set(std_by_pair) & set(pred_by_pair) & set(movement_by_pair))
+    movement = np.asarray([movement_by_pair[p] for p in common], dtype=float)
+    std_vals = np.asarray([std_by_pair[p] for p in common], dtype=float)
+    pred_vals = np.asarray([pred_by_pair[p] for p in common], dtype=float)
+    finite = np.isfinite(movement) & np.isfinite(std_vals) & np.isfinite(pred_vals)
+    movement = movement[finite]
+    std_vals = std_vals[finite]
+    pred_vals = pred_vals[finite]
+
+    binned_rows: List[Dict[str, object]] = []
+    if movement.size:
+        percentiles = np.linspace(0, 100, int(movement_bins) + 1)
+        edges = np.nanpercentile(movement, percentiles)
+        edges = np.unique(edges)
+        if edges.size < 2:
+            edges = np.asarray([float(np.nanmin(movement)) - 1e-9, float(np.nanmax(movement)) + 1e-9])
+        for b in range(edges.size - 1):
+            lo, hi = float(edges[b]), float(edges[b + 1])
+            if b == edges.size - 2:
+                mask = (movement >= lo) & (movement <= hi)
+            else:
+                mask = (movement >= lo) & (movement < hi)
+            if not mask.any():
+                continue
+            binned_rows.append(
+                {
+                    "bin": int(b),
+                    "movement_distance_low": lo,
+                    "movement_distance_high": hi,
+                    "movement_distance_mid": float(0.5 * (lo + hi)),
+                    "n_pairs": int(np.sum(mask)),
+                    "median_standard_grid_corr": float(np.nanmedian(std_vals[mask])),
+                    "q25_standard_grid_corr": float(np.nanpercentile(std_vals[mask], 25)),
+                    "q75_standard_grid_corr": float(np.nanpercentile(std_vals[mask], 75)),
+                    "median_predictive_corr": float(np.nanmedian(pred_vals[mask])),
+                    "q25_predictive_corr": float(np.nanpercentile(pred_vals[mask], 25)),
+                    "q75_predictive_corr": float(np.nanpercentile(pred_vals[mask], 75)),
+                    "median_standard_minus_predictive_corr": float(np.nanmedian(std_vals[mask] - pred_vals[mask])),
+                }
+            )
+    return summary_rows, heatmaps, binned_rows
+
+
+def plot_same_bin_population_corr(
+    out_dir: Path,
+    rows: Sequence[Dict[str, object]],
+    heatmaps: Dict[str, np.ndarray],
+    binned_rows: Sequence[Dict[str, object]],
+    title: Optional[str],
+    dpi: int,
+) -> Dict[str, Optional[str]]:
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:
+        raise RuntimeError("same-bin population correlation plotting needs matplotlib installed.") from exc
+
+    try:
+        plt.style.use("seaborn-v0_8-whitegrid")
+    except Exception:
+        pass
+
+    paths: Dict[str, Optional[str]] = {
+        "distribution_plot": None,
+        "heatmap_plot": None,
+        "movement_scatter_plot": None,
+        "movement_binned_plot": None,
+    }
+    std_vals = np.asarray(
+        [float(row.get("correlation", np.nan)) for row in rows if row.get("signal") == "standard_grid"],
+        dtype=float,
+    )
+    pred_vals = np.asarray(
+        [float(row.get("correlation", np.nan)) for row in rows if row.get("signal") == "predictive"],
+        dtype=float,
+    )
+    std_vals = std_vals[np.isfinite(std_vals)]
+    pred_vals = pred_vals[np.isfinite(pred_vals)]
+    colors = {"standard_grid": "#2a9d8f", "predictive": "#e76f51"}
+    if std_vals.size and pred_vals.size:
+        combined = np.concatenate([std_vals, pred_vals])
+        bins = np.linspace(float(np.nanmin(combined)), float(np.nanmax(combined)), 40)
+        if np.allclose(bins[0], bins[-1]):
+            bins = np.linspace(bins[0] - 0.05, bins[0] + 0.05, 40)
+        fig, ax = plt.subplots(figsize=(6.4, 4.4))
+        ax.hist(std_vals, bins=bins, density=True, alpha=0.45, color=colors["standard_grid"], label=f"Grid median={np.nanmedian(std_vals):.3f}")
+        ax.hist(pred_vals, bins=bins, density=True, alpha=0.45, color=colors["predictive"], label=f"Predictive median={np.nanmedian(pred_vals):.3f}")
+        ax.set_xlabel("Population correlation")
+        ax.set_ylabel("Density")
+        ax.set_title(title or "Same-bin population correlation")
+        ax.legend(frameon=True)
+        fig.tight_layout()
+        path = out_dir / "same_bin_gc_pgc_correlation_distributions.png"
+        fig.savefig(path, dpi=int(dpi))
+        plt.close(fig)
+        paths["distribution_plot"] = str(path)
+
+    if "standard_grid" in heatmaps and "predictive" in heatmaps:
+        fig, axes = plt.subplots(1, 2, figsize=(8.5, 4.0))
+        for ax, signal, label in zip(axes, ["standard_grid", "predictive"], ["Grid units", "Predictive grid units"]):
+            im = ax.imshow(heatmaps[signal].T, origin="lower", vmin=0.5, vmax=1.0, cmap="viridis")
+            ax.set_title(label)
+            ax.set_xlabel("x bin")
+            ax.set_ylabel("y bin")
+        fig.colorbar(im, ax=axes.ravel().tolist(), fraction=0.035, pad=0.04, label="Median correlation")
+        fig.suptitle(title or "Same-bin median population correlation")
+        path = out_dir / "same_bin_spatial_median_heatmaps.png"
+        fig.savefig(path, dpi=int(dpi), bbox_inches="tight")
+        plt.close(fig)
+        paths["heatmap_plot"] = str(path)
+
+    std_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "standard_grid" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    pred_by_pair = {
+        int(row["pair_id"]): float(row["correlation"])
+        for row in rows
+        if row.get("signal") == "predictive" and np.isfinite(float(row.get("correlation", np.nan)))
+    }
+    movement_by_pair = {
+        int(row["pair_id"]): float(row.get("movement_vector_distance", np.nan))
+        for row in rows
+        if row.get("signal") == "standard_grid"
+    }
+    common = sorted(set(std_by_pair) & set(pred_by_pair) & set(movement_by_pair))
+    movement = np.asarray([movement_by_pair[p] for p in common], dtype=float)
+    std = np.asarray([std_by_pair[p] for p in common], dtype=float)
+    pred = np.asarray([pred_by_pair[p] for p in common], dtype=float)
+    finite = np.isfinite(movement) & np.isfinite(std) & np.isfinite(pred)
+    if finite.any():
+        fig, axes = plt.subplots(1, 2, figsize=(8.5, 4.0))
+        axes[0].plot(movement[finite], std[finite], "o", color="#222222", alpha=0.25, markersize=2.5)
+        axes[0].set_title("Grid units")
+        axes[1].plot(movement[finite], pred[finite], "o", color="#222222", alpha=0.25, markersize=2.5)
+        axes[1].set_title("Predictive grid units")
+        for ax in axes:
+            ax.set_xlabel("Movement vector distance")
+            ax.set_ylabel("Population correlation")
+        fig.suptitle(title or "Movement distance vs population correlation")
+        fig.tight_layout()
+        path = out_dir / "same_bin_corr_vs_movement_distance.png"
+        fig.savefig(path, dpi=int(dpi))
+        plt.close(fig)
+        paths["movement_scatter_plot"] = str(path)
+
+    if binned_rows:
+        x = np.asarray([float(row["movement_distance_mid"]) for row in binned_rows], dtype=float)
+        std_med = np.asarray([float(row["median_standard_grid_corr"]) for row in binned_rows], dtype=float)
+        std_q25 = np.asarray([float(row["q25_standard_grid_corr"]) for row in binned_rows], dtype=float)
+        std_q75 = np.asarray([float(row["q75_standard_grid_corr"]) for row in binned_rows], dtype=float)
+        pred_med = np.asarray([float(row["median_predictive_corr"]) for row in binned_rows], dtype=float)
+        pred_q25 = np.asarray([float(row["q25_predictive_corr"]) for row in binned_rows], dtype=float)
+        pred_q75 = np.asarray([float(row["q75_predictive_corr"]) for row in binned_rows], dtype=float)
+        fig, ax = plt.subplots(figsize=(6.4, 4.3))
+        ax.errorbar(x, std_med, yerr=np.vstack([std_med - std_q25, std_q75 - std_med]), fmt="o-", color=colors["standard_grid"], label="Grid")
+        ax.errorbar(x, pred_med, yerr=np.vstack([pred_med - pred_q25, pred_q75 - pred_med]), fmt="o-", color=colors["predictive"], label="Predictive grid")
+        ax.set_xlabel("Movement vector distance")
+        ax.set_ylabel("Population correlation")
+        ax.set_title(title or "Same-bin correlation by movement distance")
+        ax.legend(frameon=True)
+        fig.tight_layout()
+        path = out_dir / "same_bin_corr_vs_movement_distance_binned.png"
+        fig.savefig(path, dpi=int(dpi))
+        plt.close(fig)
+        paths["movement_binned_plot"] = str(path)
+    return paths
+
+
+def run_same_bin_population_corr(args) -> Path:
+    rng = set_seed(int(args.random_seed))
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    out_dir = ensure_dir(args.output_dir)
+    configure_logging(out_dir, "crossing.log")
+    log_info("[same_bin] checkpoint=%s", args.checkpoint_path)
+    log_info("[same_bin] gridness=%s", args.gridness_path)
+
+    timestep_arg = getattr(args, "same_bin_timestep", None)
+    if timestep_arg is None:
+        timestep_arg = getattr(args, "crossing_step", None)
+    min_sequence_length = max(2, int(args.sequence_length or 0), int(timestep_arg if timestep_arg is not None else 0) + 1)
+    model, place_cells, options, payload = load_analysis_model(
+        args.checkpoint_path,
+        device=device,
+        sequence_length=min_sequence_length if min_sequence_length > 2 else None,
+        batch_size=args.batch_size,
+    )
+    options.batch_size = int(args.batch_size)
+    options.sequence_length = int(max(min_sequence_length, int(options.sequence_length)))
+    options.device = device
+    timestep = int(timestep_arg if timestep_arg is not None else options.sequence_length // 2)
+    timestep = int(np.clip(timestep, 0, int(options.sequence_length) - 1))
+
+    grid_data = load_gridness_payload(args.gridness_path)
+    units = class_arrays(grid_data, int(options.Ng), fallback=bool(args.allow_fallback_units))
+    groups, random_candidates, pred_count = _group_unit_indices_for_population_corr(units, int(options.Ng))
+    log_info(
+        "[same_bin] device=%s checkpoint_format=%s class_counts=%s timestep=%d res=%d pairs_per_bin=%d",
+        device,
+        payload.get("format", "?"),
+        {k: int(v.size) for k, v in units.items()},
+        timestep,
+        int(args.same_bin_res),
+        int(args.same_bin_pairs_per_bin),
+    )
+
+    traj_options = make_options(**options_to_dict(options))
+    traj_options.batch_size = int(args.batch_size)
+    traj_options.sequence_length = int(options.sequence_length)
+    traj_options.device = device
+    traj_gen = TrajectoryGenerator(traj_options, place_cells)
+    rows: List[Dict[str, object]] = []
+    pair_offset = 0
+    res = int(args.same_bin_res)
+    border_bins = int(np.ceil(float(args.same_bin_border_buffer) / (float(options.box_width) / float(res))))
+    valid_start = max(0, border_bins)
+    valid_stop = min(res, res - border_bins)
+    start_time = time.time()
+    model.eval()
+    with torch.no_grad():
+        for batch_idx in range(max(1, int(args.n_batches))):
+            inputs2, pos_t, _ = traj_gen.get_test_batch(batch_size=int(args.batch_size))
+            v2, init = inputs2
+            v = pad_zero_cue(v2.to(device), int(getattr(options, "cue_dim", 0)))
+            states = model.g((v, init.to(device))).detach().cpu().numpy()
+            pos_np = pos_t.detach().cpu().numpy().astype(np.float32)
+            vel_np = v2.detach().cpu().numpy().astype(np.float32)
+            p = pos_np[timestep]
+            g = states[timestep]
+            mov = vel_np[timestep]
+            binned_pos = np.floor(((p + float(options.box_width) / 2.0) / float(options.box_width)) * float(res)).astype(int)
+            binned_pos = np.clip(binned_pos, 0, res - 1)
+
+            for i in range(valid_start, valid_stop):
+                for j in range(valid_start, valid_stop):
+                    ids = np.where((binned_pos[:, 0] == i) & (binned_pos[:, 1] == j))[0]
+                    if ids.size < 2:
+                        continue
+                    n_draws = min(int(args.same_bin_pairs_per_bin), int(ids.size * (ids.size - 1) // 2))
+                    for _ in range(n_draws):
+                        a, b = rng.choice(ids, size=2, replace=False)
+                        pair_id = pair_offset
+                        pair_offset += 1
+                        movement_distance = float(np.linalg.norm(mov[a] - mov[b]))
+                        pos_distance_cm = float(np.linalg.norm(p[a] - p[b]) * 100.0)
+                        base = {
+                            "pair_id": int(pair_id),
+                            "batch": int(batch_idx),
+                            "crossing_step": int(timestep),
+                            "timestep": int(timestep),
+                            "bin_x": int(i),
+                            "bin_y": int(j),
+                            "position_distance_cm": pos_distance_cm,
+                            "movement_vector_distance": movement_distance,
+                            "movement_angle_sep_deg": movement_angle_sep_deg(mov[a], mov[b]),
+                        }
+                        for signal, unit_idx in groups.items():
+                            unit_idx = np.asarray(unit_idx, dtype=int)
+                            corr = safe_pearson_corr(g[a, unit_idx], g[b, unit_idx]) if unit_idx.size else float("nan")
+                            rows.append({**base, "signal": signal, "n_units": int(unit_idx.size), "correlation": corr})
+                        if random_candidates.size:
+                            random_corrs = []
+                            for _rep in range(max(1, int(args.matched_random_repeats))):
+                                n = min(pred_count, random_candidates.size)
+                                draw = rng.choice(random_candidates, size=n, replace=False)
+                                random_corrs.append(safe_pearson_corr(g[a, draw], g[b, draw]))
+                            rows.append(
+                                {
+                                    **base,
+                                    "signal": "random_matched_count",
+                                    "n_units": int(min(pred_count, random_candidates.size)),
+                                    "correlation": float(np.nanmean(random_corrs)),
+                                }
+                            )
+            if (batch_idx + 1) % max(1, int(args.log_every_batches)) == 0:
+                log_info(
+                    "[same_bin] batch=%d/%d sampled_pairs=%d rows=%d elapsed=%s",
+                    batch_idx + 1,
+                    int(args.n_batches),
+                    pair_offset,
+                    len(rows),
+                    format_duration(time.time() - start_time),
+                )
+
+    summary_rows, comparison = summarize_corr_rows(rows, rng)
+    same_bin_summary_rows, heatmaps, movement_binned_rows = summarize_same_bin_rows(
+        rows,
+        res=res,
+        movement_bins=int(args.same_bin_movement_bins),
+        rng=rng,
+    )
+    if same_bin_summary_rows:
+        summary_rows = same_bin_summary_rows
+    write_csv(out_dir / "crossing_pair_metrics.csv", rows)
+    write_csv(out_dir / "crossing_summary.csv", summary_rows)
+    write_csv(out_dir / "same_bin_movement_binned_metrics.csv", movement_binned_rows)
+    np.savez_compressed(out_dir / "same_bin_heatmaps.npz", **{f"{k}_median": v for k, v in heatmaps.items()})
+    plot_paths: Dict[str, Optional[str]] = {}
+    if bool(args.same_bin_plot):
+        plot_paths = plot_same_bin_population_corr(
+            out_dir,
+            rows,
+            heatmaps,
+            movement_binned_rows,
+            title=getattr(args, "title", None),
+            dpi=int(getattr(args, "dpi", 200)),
+        )
+    payload = {
+        "pairing_mode": "same_bin",
+        "checkpoint_path": str(args.checkpoint_path),
+        "gridness_path": str(args.gridness_path),
+        "n_pairs": int(pair_offset),
+        "n_rows": int(len(rows)),
+        "class_counts": {k: int(v.size) for k, v in units.items()},
+        "comparison": comparison,
+        "summary_rows": summary_rows,
+        "movement_binned_rows": movement_binned_rows,
+        "plot_paths": plot_paths,
+        "pair_metrics_path": str(out_dir / "crossing_pair_metrics.csv"),
+        "summary_path": str(out_dir / "crossing_summary.csv"),
+    }
+    write_json(out_dir / "crossing_metrics.json", payload)
+    write_json(out_dir / "summary.json", payload)
+    log_info(
+        "[same_bin] mean standard-minus-predictive corr=%.4f ci95=[%.4f, %.4f] pairs=%d",
+        float(comparison.get("mean_standard_minus_predictive_corr", np.nan)),
+        float(comparison.get("ci95_low", np.nan)),
+        float(comparison.get("ci95_high", np.nan)),
+        int(comparison.get("n_matched_pairs", 0)),
+    )
+    log_info("[same_bin] wrote %s", out_dir)
     return out_dir
 
 
@@ -3337,6 +3741,8 @@ def run_smoke(args) -> Path:
         device="cpu",
         batch_size=8,
         n_batches=1,
+        sequence_length=None,
+        pairing_mode="x_crossing",
         crossing_step=None,
         future_horizon=4,
         min_angle_deg=30.0,
@@ -3346,8 +3752,46 @@ def run_smoke(args) -> Path:
         log_every_batches=1,
         random_seed=15,
         allow_fallback_units=True,
+        same_bin_timestep=None,
+        same_bin_res=8,
+        same_bin_pairs_per_bin=2,
+        same_bin_border_buffer=0.0,
+        same_bin_movement_bins=4,
+        same_bin_plot=True,
+        title=None,
+        dpi=100,
     )
     crossing_dir = run_crossing(crossing_args)
+    configure_logging(out_dir, "smoke.log")
+
+    same_bin_args = argparse.Namespace(
+        checkpoint_path=str(full_ckpt),
+        gridness_path=str(gridness_path),
+        output_dir=str(out_dir / "same_bin"),
+        device="cpu",
+        batch_size=64,
+        n_batches=1,
+        sequence_length=12,
+        pairing_mode="same_bin",
+        crossing_step=None,
+        future_horizon=4,
+        min_angle_deg=30.0,
+        max_angle_deg=140.0,
+        line_extent=0.55,
+        matched_random_repeats=2,
+        log_every_batches=1,
+        random_seed=16,
+        allow_fallback_units=True,
+        same_bin_timestep=6,
+        same_bin_res=5,
+        same_bin_pairs_per_bin=1,
+        same_bin_border_buffer=0.0,
+        same_bin_movement_bins=4,
+        same_bin_plot=True,
+        title="Smoke same-bin population correlation",
+        dpi=100,
+    )
+    same_bin_dir = run_crossing(same_bin_args)
     configure_logging(out_dir, "smoke.log")
 
     intervene_args = argparse.Namespace(
@@ -3383,6 +3827,11 @@ def run_smoke(args) -> Path:
         crossing_dir / "crossing_metrics.json",
         crossing_dir / "crossing_pair_metrics.csv",
         crossing_dir / "crossing_summary.csv",
+        same_bin_dir / "crossing_metrics.json",
+        same_bin_dir / "crossing_pair_metrics.csv",
+        same_bin_dir / "crossing_summary.csv",
+        same_bin_dir / "same_bin_movement_binned_metrics.csv",
+        same_bin_dir / "same_bin_heatmaps.npz",
         intervene_dir / "intervention_metrics.json",
         intervene_dir / "intervention_metrics.csv",
     ]
@@ -3512,6 +3961,12 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_cross.add_argument("--batch_size", type=int, default=128)
     p_cross.add_argument("--n_batches", type=int, default=8)
     p_cross.add_argument("--sequence_length", type=int, default=None)
+    p_cross.add_argument(
+        "--pairing_mode",
+        default="x_crossing",
+        choices=["x_crossing", "same_bin"],
+        help="x_crossing keeps the exact controlled-X analysis; same_bin runs the pasted-style same-spatial-bin analysis.",
+    )
     p_cross.add_argument("--crossing_step", type=int, default=None)
     p_cross.add_argument("--future_horizon", type=int, default=8)
     p_cross.add_argument("--min_angle_deg", type=float, default=30.0)
@@ -3521,6 +3976,14 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_cross.add_argument("--log_every_batches", type=int, default=5)
     p_cross.add_argument("--random_seed", type=int, default=0)
     p_cross.add_argument("--allow_fallback_units", action=argparse.BooleanOptionalAction, default=True)
+    p_cross.add_argument("--same_bin_timestep", type=int, default=None)
+    p_cross.add_argument("--same_bin_res", type=int, default=44)
+    p_cross.add_argument("--same_bin_pairs_per_bin", type=int, default=20)
+    p_cross.add_argument("--same_bin_border_buffer", type=float, default=0.2)
+    p_cross.add_argument("--same_bin_movement_bins", type=int, default=20)
+    p_cross.add_argument("--same_bin_plot", action=argparse.BooleanOptionalAction, default=True)
+    p_cross.add_argument("--title", default=None)
+    p_cross.add_argument("--dpi", type=int, default=200)
 
     p_plot_cross = sub.add_parser("plot_crossing", help="Plot summary figures from a crossing output directory.")
     p_plot_cross.add_argument("--crossing_dir", required=True)

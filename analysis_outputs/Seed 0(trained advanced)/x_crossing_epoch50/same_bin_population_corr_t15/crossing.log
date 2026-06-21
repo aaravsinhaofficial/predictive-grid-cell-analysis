@@ -1,0 +1,3 @@
+2026-06-05 06:23:34 | INFO | logging to analysis_outputs/Seed 0(trained advanced)/x_crossing_epoch50/same_bin_population_corr_t15/crossing.log
+2026-06-05 06:23:34 | INFO | [same_bin] checkpoint=Seed 0(trained advanced)/epoch_50.pth
+2026-06-05 06:23:34 | INFO | [same_bin] gridness=analysis_outputs/Seed 0(trained advanced)/x_crossing_epoch50/classify_zero_lag_strict/gridness_data.npz

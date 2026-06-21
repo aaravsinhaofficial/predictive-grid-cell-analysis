@@ -81,7 +81,7 @@ def plot_best_shift_scatter(
         seeds = seeds[keep]
 
     unique_seeds = sorted(set(seeds.tolist()))
-    cmap = plt.cm.get_cmap("tab10", max(1, len(unique_seeds)))
+    cmap = plt.get_cmap("tab10", max(1, len(unique_seeds)))
     color_map = {seed: cmap(i) for i, seed in enumerate(unique_seeds)}
 
     fig, ax = plt.subplots(figsize=(6.6, 5.8))

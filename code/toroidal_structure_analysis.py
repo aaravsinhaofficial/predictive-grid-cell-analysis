@@ -519,7 +519,7 @@ def plot_toroidal_embedding(
     if embedding.size == 0:
         return
     uniq = np.unique(labels)
-    cmap = plt.cm.get_cmap("tab10")
+    cmap = plt.get_cmap("tab10")
     fig, ax = plt.subplots(figsize=(6.0, 5.0))
     for lab in uniq:
         mask = labels == lab
@@ -602,7 +602,7 @@ def plot_torus_comparison(
 ) -> None:
     """Plot 3D torus embeddings for each condition (single view + multiview grid)."""
     titles = list(projections.keys())
-    cmap = plt.cm.get_cmap("viridis")
+    cmap = plt.get_cmap("viridis")
     flat_pos = positions.reshape(-1, 2)
     x_norm = (flat_pos[:, 0] - flat_pos[:, 0].min()) / (flat_pos[:, 0].ptp() + 1e-8)
 

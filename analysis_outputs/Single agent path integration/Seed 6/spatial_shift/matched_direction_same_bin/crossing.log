@@ -1,0 +1,7 @@
+2026-06-21 10:09:08 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 6/spatial_shift/matched_direction_same_bin/crossing.log
+2026-06-21 10:09:08 | INFO | [same_bin] checkpoint=Models/Single agent path integration/Seed 6/most_recent_model.pth
+2026-06-21 10:09:08 | INFO | [same_bin] gridness=/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 6/spatial_shift/gridness_data.npz
+2026-06-21 10:09:09 | INFO | [same_bin] device=cuda checkpoint_format=core_state_dict class_counts={'predictive': 84, 'retrospective': 87, 'standard': 87, 'low_grid': 254, 'band': 0} source=random_walk timestep=16 res=44 pairs_per_bin=20
+2026-06-21 10:09:09 | INFO | [same_bin] batch=5/8 sampled_pairs=12 rows=72 elapsed=0s
+2026-06-21 10:09:10 | INFO | [same_bin] mean standard-minus-predictive corr=-0.0416 ci95=[-0.0595, -0.0252] pairs=17
+2026-06-21 10:09:10 | INFO | [same_bin] wrote /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 6/spatial_shift/matched_direction_same_bin

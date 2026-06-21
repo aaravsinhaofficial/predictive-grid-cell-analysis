@@ -272,7 +272,7 @@ def plot_zero_vs_shift(
 
     finite_shift = best_shift_cm[np.isfinite(best_shift_cm)]
     span = max(float(np.max(np.abs(finite_shift))) if finite_shift.size else 1.0, float(min_shift_cm), 1.0)
-    cmap = plt.cm.get_cmap("coolwarm")
+    cmap = plt.get_cmap("coolwarm")
     norm = plt.Normalize(vmin=-span, vmax=span)
 
     fig, ax = plt.subplots(figsize=(6.5, 5.4))

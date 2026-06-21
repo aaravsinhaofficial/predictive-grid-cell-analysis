@@ -1,0 +1,14 @@
+# Python environment (5.5 GB — never commit)
+.venv/
+__pycache__/
+*.pyc
+
+# Model weights (downloaded from Drive, ~80 MB each — too large for GitHub)
+Models/
+
+# Local run artifacts / secrets
+/home/ec2-user/.gh_push_token
+spatial_run.log
+spatial_run.pid
+push_results.log
+seed_model_ids.json

@@ -1,0 +1,32 @@
+2026-06-21 20:00:51 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:51 | INFO | [crossing_step_sweep] checkpoint=Models/Single agent path integration/Seed 3/most_recent_model.pth
+2026-06-21 20:00:51 | INFO | [crossing_step_sweep] gridness=/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/gridness_data.npz
+2026-06-21 20:00:51 | INFO | [crossing_step_sweep] steps=8 10 12 14 15 16 18 20 22
+2026-06-21 20:00:51 | INFO | [crossing_step_sweep] running step=8 (1/9)
+2026-06-21 20:00:53 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:53 | INFO | [crossing_step_sweep] step=8 mean=0.0959 ci95=[0.0915, 0.1002] elapsed=2s
+2026-06-21 20:00:53 | INFO | [crossing_step_sweep] running step=10 (2/9)
+2026-06-21 20:00:54 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:54 | INFO | [crossing_step_sweep] step=10 mean=0.1135 ci95=[0.1084, 0.1183] elapsed=3s
+2026-06-21 20:00:54 | INFO | [crossing_step_sweep] running step=12 (3/9)
+2026-06-21 20:00:56 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:56 | INFO | [crossing_step_sweep] step=12 mean=0.1382 ci95=[0.1321, 0.1442] elapsed=5s
+2026-06-21 20:00:56 | INFO | [crossing_step_sweep] running step=14 (4/9)
+2026-06-21 20:00:57 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:57 | INFO | [crossing_step_sweep] step=14 mean=0.1743 ci95=[0.1669, 0.1819] elapsed=6s
+2026-06-21 20:00:57 | INFO | [crossing_step_sweep] running step=15 (5/9)
+2026-06-21 20:00:59 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:00:59 | INFO | [crossing_step_sweep] step=15 mean=0.1988 ci95=[0.1903, 0.2069] elapsed=7s
+2026-06-21 20:00:59 | INFO | [crossing_step_sweep] running step=16 (6/9)
+2026-06-21 20:01:00 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:01:00 | INFO | [crossing_step_sweep] step=16 mean=0.2056 ci95=[0.1971, 0.2137] elapsed=9s
+2026-06-21 20:01:00 | INFO | [crossing_step_sweep] running step=18 (7/9)
+2026-06-21 20:01:01 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:01:01 | INFO | [crossing_step_sweep] step=18 mean=0.1730 ci95=[0.1654, 0.1802] elapsed=10s
+2026-06-21 20:01:01 | INFO | [crossing_step_sweep] running step=20 (8/9)
+2026-06-21 20:01:03 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:01:03 | INFO | [crossing_step_sweep] step=20 mean=0.1447 ci95=[0.1382, 0.1510] elapsed=11s
+2026-06-21 20:01:03 | INFO | [crossing_step_sweep] running step=22 (9/9)
+2026-06-21 20:01:04 | INFO | logging to /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.log
+2026-06-21 20:01:04 | INFO | [crossing_step_sweep] step=22 mean=0.1215 ci95=[0.1160, 0.1270] elapsed=13s
+2026-06-21 20:01:04 | INFO | [crossing_step_sweep] wrote /home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/matched_direction_step_sweep

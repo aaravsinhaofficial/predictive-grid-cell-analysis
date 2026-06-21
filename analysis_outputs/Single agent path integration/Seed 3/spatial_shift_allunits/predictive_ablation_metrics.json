@@ -1,0 +1,14 @@
+{
+  "batches": 8,
+  "baseline_error_cm": 7.248046100428919,
+  "predictive_error_cm": 94.12551997817272,
+  "random_error_cm": [
+    82.45715700816945,
+    87.70531780989862,
+    71.42726790281036,
+    86.37405653445842,
+    64.81651789832607
+  ],
+  "predictive_unit_count": 621,
+  "random_trials": 5
+}

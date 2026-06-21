@@ -604,7 +604,7 @@ def plot_torus_comparison(
     titles = list(projections.keys())
     cmap = plt.get_cmap("viridis")
     flat_pos = positions.reshape(-1, 2)
-    x_norm = (flat_pos[:, 0] - flat_pos[:, 0].min()) / (flat_pos[:, 0].ptp() + 1e-8)
+    x_norm = (flat_pos[:, 0] - flat_pos[:, 0].min()) / (np.ptp(flat_pos[:, 0]) + 1e-8)
 
     # Primary view
     fig = plt.figure(figsize=(max(14, 3.6 * len(titles)), 4.5))
@@ -935,7 +935,10 @@ def main():
     )
 
     # Plot
-    positions_baseline = np.concatenate([p for _, p in cached_batches], axis=1)
+    positions_baseline = np.concatenate(
+        [(p.detach().cpu().numpy() if hasattr(p, "detach") else np.asarray(p)) for _, p in cached_batches],
+        axis=1,
+    )
     plot_torus_comparison(
         projections,
         positions_baseline,

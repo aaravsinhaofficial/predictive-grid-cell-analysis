@@ -1,11 +1,20 @@
-.DS_Store
+# Python environment (5.5 GB — never commit)
+.venv/
 __pycache__/
-*.py[cod]
+*.pyc
+
+# Model weights (downloaded from Drive, ~80 MB each — too large for GitHub)
+Models/
+
+# Local run artifacts / secrets
+/home/ec2-user/.gh_push_token
+spatial_run.log
+spatial_run.pid
+push_results.log
+seed_model_ids.json
+
+# runtime caches / junk (keep out of main)
+.DS_Store
 .numba_cache/
 .mplconfig/
-.venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-cookies.txt
-*.pth
+*.log

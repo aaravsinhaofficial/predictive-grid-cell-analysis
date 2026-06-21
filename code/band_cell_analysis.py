@@ -52,8 +52,10 @@ def extract_state(raw: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     raise TypeError(f"Unsupported checkpoint format: {type(raw)}")
 
 
-def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
+def load_gridness_data(ckpt_path: str, analysis_subdir: Optional[str] = None) -> Dict[str, np.ndarray]:
     out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    if analysis_subdir:
+        out_dir = out_dir / str(analysis_subdir)
     grid_path = out_dir / "gridness_data.npz"
     if not os.path.exists(grid_path):
         raise FileNotFoundError(
@@ -209,7 +211,10 @@ def analyse_checkpoint(ckpt_path: str, args) -> Dict[str, float]:
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     options = build_options(args, (Ng, Np, velocity_dim), device, ckpt_path)
 
-    out_dir = analysis_dir_for_checkpoint(Path(ckpt_path)) / "band_cells"
+    base_out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    if getattr(args, "analysis_subdir", None):
+        base_out_dir = base_out_dir / str(args.analysis_subdir)
+    out_dir = base_out_dir / "band_cells"
     os.makedirs(out_dir, exist_ok=True)
 
     place_cells = PlaceCells(options)
@@ -238,7 +243,7 @@ def analyse_checkpoint(ckpt_path: str, args) -> Dict[str, float]:
         border_vals[i] = bscore
 
     # Load predictive classes
-    grid_data = load_gridness_data(ckpt_path)
+    grid_data = load_gridness_data(ckpt_path, getattr(args, "analysis_subdir", None))
     scores_60 = np.asarray(grid_data["scores_60"], dtype=float)
     if scores_60.shape[1] < Ng_eval:
         Ng_eval = scores_60.shape[1]
@@ -286,6 +291,9 @@ def analyse_checkpoint(ckpt_path: str, args) -> Dict[str, float]:
 
     summary = {
         "checkpoint": ckpt_path,
+        "analysis_subdir": None if getattr(args, "analysis_subdir", None) is None else str(args.analysis_subdir),
+        "gridness_shift_mode": str(np.asarray(grid_data.get("shift_mode", "unknown")).reshape(())),
+        "gridness_space_projection": str(np.asarray(grid_data.get("space_projection", "")).reshape(())) if "space_projection" in grid_data else None,
         "num_units_scored": int(Ng_eval),
         "band": {
             "percentile": float(args.band_percentile),
@@ -362,6 +370,11 @@ def parse_args():
     parser.add_argument("--border_threshold", type=float, default=0.5)
     parser.add_argument("--top_ratemaps", type=int, default=16)
     parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--analysis_subdir",
+        default=None,
+        help="Optional subdirectory under each checkpoint analysis folder from which to load gridness_data.npz and write band outputs.",
+    )
     parser.add_argument("--traj_speed_scale", default=1.0, type=float)
     parser.add_argument("--traj_speed_max", default=None, type=float)
     parser.add_argument("--traj_velocity_smoothing", default=0.0, type=float)

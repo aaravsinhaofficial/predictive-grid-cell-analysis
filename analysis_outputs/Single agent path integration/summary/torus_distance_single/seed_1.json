@@ -1,9 +1,0 @@
-{
-  "seed": 1,
-  "distance_to_torus": 0.368549108505249,
-  "decoding_error_cm": 0.04408628303171626,
-  "Ng_used": 512,
-  "num_positions": 400,
-  "umap_eps": 0.5,
-  "umap_min_samples": 5
-}

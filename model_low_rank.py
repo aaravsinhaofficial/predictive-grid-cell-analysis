@@ -26,6 +26,9 @@ class RNN(torch.nn.Module):
             hidden_size=self.Ng,
             k=self.rank,
             nonlinearity=options.activation,
+            factor_init=getattr(options, "low_rank_factor_init", "balanced"),
+            recurrent_gain=getattr(options, "low_rank_recurrent_gain", 1.0),
+            input_init_scale=getattr(options, "low_rank_input_init_scale", 1.0),
         )
         self.decoder = torch.nn.Linear(self.Ng, self.Np, bias=False)
         self.softmax = torch.nn.Softmax(dim=-1)
@@ -63,9 +66,25 @@ class RNN(torch.nn.Module):
         y = pc_outputs
         preds = self.predict(inputs)
         yhat = self.softmax(preds)
-        loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
+        ce_loss = -(y * torch.log(yhat.clamp_min(1e-12))).sum(-1).mean()
+        target_entropy = -(y * torch.log(y.clamp_min(1e-12))).sum(-1).mean()
+        uniform_ce = torch.log(torch.as_tensor(float(self.Np), device=ce_loss.device))
+        excess_ce = ce_loss - target_entropy
 
-        loss += self.weight_decay * ((self.RNN.M ** 2).sum() + (self.RNN.N ** 2).sum())
+        # Regularize the realized recurrent matrix, not the raw factors. With
+        # the low-rank initialization, factor L2 is enormous and can dominate
+        # the task loss before the network learns path integration.
+        W_rec = self.RNN.recurrent_gain * (self.RNN.M @ self.RNN.N / self.Ng)
+        rec_reg_loss = self.weight_decay * (W_rec ** 2).sum()
+        loss = ce_loss + rec_reg_loss
+        self.last_loss_terms = {
+            "ce_loss": float(ce_loss.detach().cpu()),
+            "excess_ce": float(excess_ce.detach().cpu()),
+            "rec_reg_loss": float(rec_reg_loss.detach().cpu()),
+            "target_entropy": float(target_entropy.detach().cpu()),
+            "uniform_ce": float(uniform_ce.detach().cpu()),
+            "uniform_margin": float((uniform_ce - ce_loss).detach().cpu()),
+        }
 
         pred_pos = self.place_cells.get_nearest_cell_pos(preds)
         err = torch.sqrt(((pos - pred_pos) ** 2).sum(-1)).mean()

@@ -59,6 +59,7 @@ class Trainer(object):
 
         loss.backward()
         self.optimizer.step()
+        self.last_loss_terms = getattr(self.model, "last_loss_terms", {})
 
         return loss.item(), err.item()
 
@@ -78,6 +79,7 @@ class Trainer(object):
         for epoch_idx in range(n_epochs):
             epoch_losses: List[float] = []
             epoch_errs: List[float] = []
+            epoch_loss_terms: Dict[str, List[float]] = {}
             for step_idx in range(n_steps):
                 inputs, pc_outputs, pos = next(gen)
                 loss, err = self.train_step(inputs, pc_outputs, pos)
@@ -85,19 +87,42 @@ class Trainer(object):
                 self.err.append(err)
                 epoch_losses.append(loss)
                 epoch_errs.append(err)
+                loss_terms = getattr(self, "last_loss_terms", {}) or {}
+                for key, value in loss_terms.items():
+                    epoch_loss_terms.setdefault(key, []).append(float(value))
 
                 # Log error rate to progress bar
                 # tbar.set_description('Error = ' + str(np.int(100*err)) + 'cm')
 
-                print('Epoch: {}/{}. Step {}/{}. Loss: {}. Err: {}cm'.format(
+                terms_text = ""
+                if loss_terms:
+                    display_keys = [
+                        "ce_loss",
+                        "excess_ce",
+                        "uniform_margin",
+                        "rec_reg_loss",
+                    ]
+                    display_items = [
+                        (key, loss_terms[key])
+                        for key in display_keys
+                        if key in loss_terms
+                    ]
+                    if not display_items:
+                        display_items = sorted(loss_terms.items())
+                    terms_text = ". " + ", ".join(
+                        "{}: {}".format(key, np.round(value, 4))
+                        for key, value in display_items)
+                print('Epoch: {}/{}. Step {}/{}. Loss: {}. Err: {}cm{}'.format(
                     epoch_idx, n_epochs, step_idx, n_steps,
-                    np.round(loss, 2), np.round(100 * err, 2)))
+                    np.round(loss, 2), np.round(100 * err, 2), terms_text))
 
             mean_loss = float(np.mean(epoch_losses))
             mean_err = float(np.mean(epoch_errs))
             self.history["epoch"].append(epoch_idx)
             self.history["loss"].append(mean_loss)
             self.history["err"].append(mean_err)
+            for key, values in epoch_loss_terms.items():
+                self.history.setdefault(key, []).append(float(np.mean(values)))
             self._save_metrics_file()
             self._plot_training_curves()
 

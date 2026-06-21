@@ -1,0 +1,12 @@
+seed,gridness_path,count,mean_cm,median_cm,std_cm,iqr_cm,p10_cm,p90_cm,span_p10_p90_cm,cv
+0,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 0/spatial_shift_allunits/gridness_data.npz,670,13.935820895522388,15.0,5.461977158079689,11.0,6.0,20.0,14.0,0.3919379560512791
+1,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 1/spatial_shift_allunits/gridness_data.npz,631,13.952456418383518,15.0,5.338401633529836,11.0,6.0,20.0,14.0,0.38261374721897967
+2,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 2/spatial_shift_allunits/gridness_data.npz,487,13.353182751540041,14.0,5.284756383634319,11.0,6.0,20.0,14.0,0.3957675470762993
+3,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 3/spatial_shift_allunits/gridness_data.npz,621,13.470209339774557,14.0,5.210032881785369,10.0,6.0,20.0,14.0,0.38678187918093515
+4,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 4/spatial_shift_allunits/gridness_data.npz,615,13.702439024390245,14.0,5.5565893413199605,12.0,6.0,20.0,14.0,0.40551826802686386
+5,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 5/spatial_shift_allunits/gridness_data.npz,766,14.587467362924283,16.0,5.308700146090559,10.0,6.0,20.0,14.0,0.36392198958534133
+6,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 6/spatial_shift_allunits/gridness_data.npz,600,14.851666666666667,16.0,5.267478576658433,10.0,6.0,20.0,14.0,0.3546725559176586
+7,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/gridness_data.npz,590,13.816949152542373,15.0,5.345080188149988,11.0,6.0,20.0,14.0,0.3868495229121997
+8,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 8/spatial_shift_allunits/gridness_data.npz,751,13.944074567243675,15.0,5.320819487235463,11.0,6.0,20.0,14.0,0.3815828337115416
+9,/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 9/spatial_shift_allunits/gridness_data.npz,659,13.253414264036419,13.0,5.30048238677221,10.0,6.0,20.0,14.0,0.3999333515707958
+pooled,all_seeds,6390,13.909076682316119,15.0,5.362569128765287,11.0,6.0,20.0,14.0,0.3855445800509294

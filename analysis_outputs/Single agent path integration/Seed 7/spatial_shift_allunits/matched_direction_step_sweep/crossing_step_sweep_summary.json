@@ -1,0 +1,127 @@
+{
+  "checkpoint_path": "Models/Single agent path integration/Seed 7/most_recent_model.pth",
+  "gridness_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/gridness_data.npz",
+  "crossing_steps": [
+    8,
+    10,
+    12,
+    14,
+    15,
+    16,
+    18,
+    20,
+    22
+  ],
+  "metrics_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep_metrics.csv",
+  "plot_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_sweep.png",
+  "rows": [
+    {
+      "crossing_step": 8,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.03604512327668043,
+      "ci95_low": 0.031137691247808057,
+      "ci95_high": 0.041083542193564526,
+      "fraction_standard_gt_predictive": 0.69921875,
+      "mean_standard_grid_corr": 0.8826510756314077,
+      "mean_predictive_corr": 0.8466059523547274,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_008"
+    },
+    {
+      "crossing_step": 10,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.04404477897289733,
+      "ci95_low": 0.03834114366562519,
+      "ci95_high": 0.05005375489340163,
+      "fraction_standard_gt_predictive": 0.708984375,
+      "mean_standard_grid_corr": 0.859887390797319,
+      "mean_predictive_corr": 0.8158426118244216,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_010"
+    },
+    {
+      "crossing_step": 12,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.05372264456542697,
+      "ci95_low": 0.046809514099459056,
+      "ci95_high": 0.06109816730134846,
+      "fraction_standard_gt_predictive": 0.712890625,
+      "mean_standard_grid_corr": 0.8182217656867528,
+      "mean_predictive_corr": 0.7644991211213257,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_012"
+    },
+    {
+      "crossing_step": 14,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.06025474533140078,
+      "ci95_low": 0.05191263490267683,
+      "ci95_high": 0.06896050696866471,
+      "fraction_standard_gt_predictive": 0.701171875,
+      "mean_standard_grid_corr": 0.7345372877012402,
+      "mean_predictive_corr": 0.6742825423698393,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_014"
+    },
+    {
+      "crossing_step": 15,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.060668003975348564,
+      "ci95_low": 0.05101383058263404,
+      "ci95_high": 0.07047238550498028,
+      "fraction_standard_gt_predictive": 0.689453125,
+      "mean_standard_grid_corr": 0.6644740990589391,
+      "mean_predictive_corr": 0.6038060950835904,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_015"
+    },
+    {
+      "crossing_step": 16,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.058776804031545685,
+      "ci95_low": 0.04881572907778277,
+      "ci95_high": 0.06898529141248994,
+      "fraction_standard_gt_predictive": 0.68359375,
+      "mean_standard_grid_corr": 0.6453351490473815,
+      "mean_predictive_corr": 0.5865583450158358,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_016"
+    },
+    {
+      "crossing_step": 18,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.05356856509393586,
+      "ci95_low": 0.0453261955163589,
+      "ci95_high": 0.06236209900560189,
+      "fraction_standard_gt_predictive": 0.69140625,
+      "mean_standard_grid_corr": 0.7393663119408269,
+      "mean_predictive_corr": 0.6857977468468912,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_018"
+    },
+    {
+      "crossing_step": 20,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.047459539290339026,
+      "ci95_low": 0.040737685207147635,
+      "ci95_high": 0.05472574037927931,
+      "fraction_standard_gt_predictive": 0.681640625,
+      "mean_standard_grid_corr": 0.8046971059642316,
+      "mean_predictive_corr": 0.7572375666738925,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_020"
+    },
+    {
+      "crossing_step": 22,
+      "n_pairs": 512,
+      "mean_standard_minus_predictive_corr": 0.04153228665757665,
+      "ci95_low": 0.035863342031124686,
+      "ci95_high": 0.047657913480853346,
+      "fraction_standard_gt_predictive": 0.701171875,
+      "mean_standard_grid_corr": 0.8491421862236133,
+      "mean_predictive_corr": 0.8076098995660367,
+      "mean_band_corr": NaN,
+      "step_output_dir": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 7/spatial_shift_allunits/matched_direction_step_sweep/crossing_step_022"
+    }
+  ]
+}

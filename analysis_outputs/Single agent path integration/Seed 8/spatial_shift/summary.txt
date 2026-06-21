@@ -1,0 +1,21 @@
+shift_mode: space
+space_projection: path
+shift_values: [-20.0, -19.0, -18.0, -17.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0]
+cm_per_step: 1.984492301940918
+lag_cm: [-20.0, -19.0, -18.0, -17.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -10.0, -9.0, -8.0, -7.0, -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0]
+zero_scores_mean: 0.2751004577704451
+shifted_scores_mean: 0.300004317262741
+num_predictive: 83
+num_phase_precession: 94
+num_phase_locked: 91
+num_low_grid_units: 244
+preferred_shift_mean_predictive_cm: 14.180722891566266
+preferred_shift_median_predictive_cm: 15.0
+preferred_shift_mean_retrospective_cm: -14.808510638297872
+preferred_shift_median_retrospective_cm: -17.0
+ablation_batches: 8
+ablation_predictive_units: 83
+ablation_baseline_error_cm: 10.811478501852708
+ablation_predictive_error_cm: 23.677895643942893
+ablation_random_error_cm: [15.116751544926645, 29.31602975007842, 14.37391304673058, 14.54440334854469, 13.474912134268862]
+ablation_random_error_cm_mean: 17.36520196490984

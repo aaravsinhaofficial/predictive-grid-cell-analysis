@@ -1,0 +1,40 @@
+{
+  "checkpoint": "Models/Single agent path integration/Seed 5/most_recent_model.pth",
+  "analysis_subdir": "spatial_shift_allunits",
+  "gridness_shift_mode": "space",
+  "gridness_space_projection": "path",
+  "num_units_scored": 4096,
+  "band": {
+    "percentile": 90.0,
+    "threshold": null,
+    "cutoff": 0.4656788110733032,
+    "count": 306,
+    "fraction": 0.07470703125
+  },
+  "border": {
+    "threshold": 0.5,
+    "count": 132
+  },
+  "classes": {
+    "predictive": 766,
+    "retrospective": 775,
+    "normal": 724,
+    "low_grid": 1831
+  },
+  "band_overlap": {
+    "predictive": 89,
+    "retrospective": 88,
+    "normal": 69,
+    "low_grid": 60
+  },
+  "border_overlap": {
+    "border": 132,
+    "band": 306,
+    "band_and_border": 31
+  },
+  "predictive_border_overlap": {
+    "predictive": 17,
+    "retrospective": 23,
+    "normal": 23
+  }
+}

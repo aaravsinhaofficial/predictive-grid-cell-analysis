@@ -216,6 +216,21 @@ def run_ablation_for_checkpoint(
     for cls_name, vec in score_vectors.items():
         score_vectors[cls_name] = np.asarray(vec, dtype=float)[:Ng_eval]
 
+    # Random-ablation pool. With --random_pool grid (default) the matched-random control
+    # draws ONLY from grid cells (predictive ∪ retrospective ∪ normal), so it answers
+    # "are predictive grid cells more important than other grid cells?" rather than being
+    # diluted by non-grid / low-activity units.
+    grid_pool = np.unique(np.concatenate([
+        np.asarray(class_indices.get("predictive", np.array([], dtype=int)), dtype=int),
+        np.asarray(class_indices.get("retrospective", np.array([], dtype=int)), dtype=int),
+        np.asarray(class_indices.get("normal", np.array([], dtype=int)), dtype=int),
+    ])) if any(np.asarray(class_indices.get(k, np.array([], dtype=int))).size
+              for k in ("predictive", "retrospective", "normal")) else np.arange(Ng_eval, dtype=int)
+    if getattr(args, "random_pool", "grid") == "grid" and grid_pool.size > 0:
+        analysis_unit_pool = grid_pool.astype(int)
+    print(f"  Random-ablation pool: {getattr(args, 'random_pool', 'grid')} "
+          f"(n={analysis_unit_pool.size} units)", flush=True)
+
     place_cells = PlaceCells(options)
     traj_gen = TrajectoryGenerator(options, place_cells)
     base_model = RNN(options, place_cells).to(options.device)
@@ -269,8 +284,9 @@ def run_ablation_for_checkpoint(
             errors[combo_name].append(float(err_val) if math.isfinite(err_val) else None)
 
             rand_vals: List[float] = []
+            rand_size = min(int(units.size), int(analysis_unit_pool.size))
             for _ in range(max(0, int(args.random_trials))):
-                rand_units = rng.choice(analysis_unit_pool, size=int(units.size), replace=False)
+                rand_units = rng.choice(analysis_unit_pool, size=rand_size, replace=False)
                 rand_model = copy.deepcopy(base_model)
                 zero_unit_weights_in_place(rand_model, rand_units.tolist())
                 rand_err = mean_decoding_error_cm(rand_model, eval_batches)
@@ -306,8 +322,9 @@ def run_ablation_for_checkpoint(
             err_val = mean_decoding_error_cm(ablated_model, eval_batches)
             count_errors[cls_name].append(float(err_val) if math.isfinite(err_val) else None)
             rand_vals: List[float] = []
+            rand_size = min(int(selected.size), int(analysis_unit_pool.size))
             for _ in range(max(0, int(args.random_trials))):
-                rand_units = rng.choice(analysis_unit_pool, size=int(selected.size), replace=False)
+                rand_units = rng.choice(analysis_unit_pool, size=rand_size, replace=False)
                 rand_model = copy.deepcopy(base_model)
                 zero_unit_weights_in_place(rand_model, rand_units.tolist())
                 rand_err = mean_decoding_error_cm(rand_model, eval_batches)
@@ -857,6 +874,9 @@ def main():
                         help="Restrict ablation analysis to first Ng_use units (<=0 uses all cached units).")
     parser.add_argument("--random_trials", default=3, type=int,
                         help="Matched-random ablation repeats per condition.")
+    parser.add_argument("--random_pool", default="grid", choices=["grid", "all"],
+                        help="Pool for matched-random ablation: 'grid' = grid cells only "
+                             "(predictive ∪ retrospective ∪ normal); 'all' = every evaluated unit.")
     parser.add_argument("--random_seed", default=0, type=int,
                         help="Base RNG seed for matched-random ablations.")
     parser.add_argument("--batch_size", default=100, type=int)

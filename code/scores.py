@@ -121,20 +121,32 @@ class GridScorer(object):
     n_bins = filter2(ones_seq1, ones_seq2)
     n_bins_sq = np.square(n_bins)
 
-    std_seq1 = np.power(
-        np.subtract(
-            np.divide(sum_seq1_sq, n_bins),
-            (np.divide(np.square(sum_seq1), n_bins_sq))), 0.5)
-    std_seq2 = np.power(
-        np.subtract(
-            np.divide(sum_seq2_sq, n_bins),
-            (np.divide(np.square(sum_seq2), n_bins_sq))), 0.5)
-    covar = np.subtract(
-        np.divide(seq1_x_seq2, n_bins),
-        np.divide(np.multiply(sum_seq1, sum_seq2), n_bins_sq))
-    x_coef = np.divide(covar, np.multiply(std_seq1, std_seq2))
+    safe_bins = n_bins > 0
+    safe_bins_sq = n_bins_sq > 0
+
+    mean_seq1_sq = np.divide(
+        sum_seq1_sq, n_bins, out=np.zeros_like(sum_seq1_sq, dtype=float), where=safe_bins)
+    mean_seq2_sq = np.divide(
+        sum_seq2_sq, n_bins, out=np.zeros_like(sum_seq2_sq, dtype=float), where=safe_bins)
+    mean_seq1 = np.divide(
+        np.square(sum_seq1), n_bins_sq, out=np.zeros_like(sum_seq1, dtype=float), where=safe_bins_sq)
+    mean_seq2 = np.divide(
+        np.square(sum_seq2), n_bins_sq, out=np.zeros_like(sum_seq2, dtype=float), where=safe_bins_sq)
+
+    var_seq1 = np.maximum(mean_seq1_sq - mean_seq1, 0.0)
+    var_seq2 = np.maximum(mean_seq2_sq - mean_seq2, 0.0)
+    std_seq1 = np.sqrt(var_seq1)
+    std_seq2 = np.sqrt(var_seq2)
+
+    cross_mean = np.divide(
+        seq1_x_seq2, n_bins, out=np.zeros_like(seq1_x_seq2, dtype=float), where=safe_bins)
+    product_mean = np.divide(
+        np.multiply(sum_seq1, sum_seq2), n_bins_sq, out=np.zeros_like(sum_seq1, dtype=float), where=safe_bins_sq)
+    covar = cross_mean - product_mean
+    denom = std_seq1 * std_seq2
+    x_coef = np.divide(covar, denom, out=np.zeros_like(covar, dtype=float), where=denom > 1e-12)
     x_coef = np.real(x_coef)
-    x_coef = np.nan_to_num(x_coef)
+    x_coef = np.nan_to_num(x_coef, nan=0.0, posinf=0.0, neginf=0.0)
     return x_coef
 
   def rotated_sacs(self, sac, angles):
@@ -522,7 +534,7 @@ class GridScorer(object):
 
     return np.asarray(scores_60), np.asarray(scores_90)
 
-  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path', progress=False, progress_label=None, progress_every=50):
+  def predictive_grid_scores(self, xs, ys, activations, lags, unit_idx=None, statistic='mean', shift_mode='time', periodic=False, space_projection='path', progress=False, progress_label=None, progress_every=50, progress_callback=None):
     """Predictive gridness across temporal or spatial shifts.
 
     Computes gridness (60° and 90°) for activations aligned to future/past
@@ -544,6 +556,8 @@ class GridScorer(object):
       progress: If True, print progress updates while scoring many units.
       progress_label: Optional label for progress output.
       progress_every: Number of units between progress updates.
+      progress_callback: Optional callable receiving one formatted progress
+        string. If omitted, progress messages are printed to stdout.
 
     Returns:
       If activations is 2D or unit_idx is provided: (scores_60, scores_90)
@@ -568,6 +582,8 @@ class GridScorer(object):
     elif activations.ndim == 3:
       T, B, Ng = activations.shape
       if unit_idx is not None:
+        # Caller asked for one unit from a population tensor; score only that
+        # unit's activity against shifted positions.
         return self._predictive_scores_single(
             xs,
             ys,
@@ -578,16 +594,20 @@ class GridScorer(object):
             periodic=periodic,
             space_projection=space_projection)
       # All units
+      # scores_60/scores_90 have one row per tested lag and one column per unit.
       scores_60 = np.zeros((len(lags), Ng))
       scores_90 = np.zeros((len(lags), Ng))
       progress_step = max(1, int(progress_every))
       progress_name = progress_label or 'predictive_grid_scores'
+      emit_progress = progress_callback or (lambda msg: print(msg, flush=True))
       start_time = None
       if progress:
         start_time = time.time()
-        print('[%s] Scoring %d units across %d shifts (%s mode).' % (
-            progress_name, Ng, len(lags), shift_mode), flush=True)
+        emit_progress('[%s] Scoring %d units across %d shifts (%s mode).' % (
+            progress_name, Ng, len(lags), shift_mode))
       for u in range(Ng):
+        # For this unit, build shifted rate maps for every lag and compute the
+        # resulting 60-degree and 90-degree gridness scores.
         s60, s90 = self._predictive_scores_single(
             xs,
             ys,
@@ -599,21 +619,23 @@ class GridScorer(object):
             space_projection=space_projection)
         scores_60[:, u] = s60
         scores_90[:, u] = s90
+        # Progress logging is important for all-units classification because
+        # scoring thousands of units across many shifts can take a long time.
         if progress and ((u + 1) == 1 or (u + 1) % progress_step == 0 or (u + 1) == Ng):
           elapsed = time.time() - start_time
           units_done = float(u + 1)
           rate = units_done / elapsed if elapsed > 0 else np.nan
           remaining = (Ng - units_done) / rate if np.isfinite(rate) and rate > 0 else np.nan
-          print('[%s] %d/%d units (%.1f%%) | elapsed %s | eta %s' % (
+          emit_progress('[%s] %d/%d units (%.1f%%) | elapsed %s | eta %s' % (
               progress_name,
               u + 1,
               Ng,
               100.0 * units_done / max(1.0, float(Ng)),
               _format_duration(elapsed),
-              _format_duration(remaining)), flush=True)
+              _format_duration(remaining)))
       if progress:
-        print('[%s] Completed in %s.' % (
-            progress_name, _format_duration(time.time() - start_time)), flush=True)
+        emit_progress('[%s] Completed in %s.' % (
+            progress_name, _format_duration(time.time() - start_time)))
       return scores_60, scores_90
     else:
       raise ValueError('activations must have shape [T,B] or [T,B,Ng]')

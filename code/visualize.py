@@ -70,7 +70,7 @@ def convert_to_colormap(im, cmap):
 
 
 def rgb(im, cmap='jet', smooth=True):
-    cmap = plt.cm.get_cmap(cmap)
+    cmap = plt.get_cmap(cmap)
     np.seterr(invalid='ignore')  # ignore divide by zero err
     im = (im - np.min(im)) / (np.max(im) - np.min(im))
     if smooth:

@@ -179,7 +179,7 @@ def scatter_zero_vs_shift(zero_scores: np.ndarray,
             limit = max(limit, float(np.nanmax(np.abs(lag_cm))))
         if not np.isfinite(limit) or limit <= 0:
             limit = 1.0
-        color_mapper = plt.cm.get_cmap('coolwarm')
+        color_mapper = plt.get_cmap('coolwarm')
         norm = plt.Normalize(vmin=-limit, vmax=limit)
         color_array = np.full(best_shift_cm.shape, np.nan, dtype=float)
         color_array[:] = best_shift_cm

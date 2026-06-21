@@ -1,0 +1,71 @@
+{
+  "checkpoint_path": "Models/Single agent path integration/Seed 0/most_recent_model.pth",
+  "gridness_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 0/spatial_shift/gridness_data.npz",
+  "n_pairs": 512,
+  "class_counts": {
+    "predictive": 81,
+    "retrospective": 87,
+    "standard": 97,
+    "low_grid": 247,
+    "band": 0
+  },
+  "comparison": {
+    "n_matched_pairs": 512,
+    "mean_standard_minus_predictive_corr": 0.2565314233268491,
+    "ci95_low": 0.2386174728919135,
+    "ci95_high": 0.2738285297687466,
+    "fraction_standard_gt_predictive": 0.92578125
+  },
+  "summary_rows": [
+    {
+      "signal": "band",
+      "n_pairs": 0,
+      "mean_correlation": NaN,
+      "sem_correlation": NaN,
+      "ci95_low": NaN,
+      "ci95_high": NaN
+    },
+    {
+      "signal": "predictive",
+      "n_pairs": 512,
+      "mean_correlation": 0.46137653546014923,
+      "sem_correlation": 0.01227118695765661,
+      "ci95_low": 0.4384173455266974,
+      "ci95_high": 0.4856640721780242
+    },
+    {
+      "signal": "random_matched_count",
+      "n_pairs": 512,
+      "mean_correlation": 0.6452838216301857,
+      "sem_correlation": 0.007247340912178219,
+      "ci95_low": 0.6318026032137947,
+      "ci95_high": 0.6594768918002837
+    },
+    {
+      "signal": "retrospective",
+      "n_pairs": 512,
+      "mean_correlation": 0.5474508165078866,
+      "sem_correlation": 0.01135740004430934,
+      "ci95_low": 0.5253484591115108,
+      "ci95_high": 0.5696715786478905
+    },
+    {
+      "signal": "standard_grid",
+      "n_pairs": 512,
+      "mean_correlation": 0.7179079587869983,
+      "sem_correlation": 0.007620063987728316,
+      "ci95_low": 0.7025152971651704,
+      "ci95_high": 0.7334361874483553
+    },
+    {
+      "signal": "standard_grid_matched_count",
+      "n_pairs": 512,
+      "mean_correlation": 0.7529623170968294,
+      "sem_correlation": 0.007141231378375255,
+      "ci95_low": 0.7390379520725023,
+      "ci95_high": 0.7666330700024825
+    }
+  ],
+  "pair_metrics_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 0/spatial_shift/matched_direction_step_sweep/crossing_step_016/crossing_pair_metrics.csv",
+  "summary_path": "/home/ec2-user/predictive-grid-cell-analysis/analysis_outputs/Single agent path integration/Seed 0/spatial_shift/matched_direction_step_sweep/crossing_step_016/crossing_summary.csv"
+}

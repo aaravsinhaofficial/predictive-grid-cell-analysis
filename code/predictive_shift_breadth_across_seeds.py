@@ -54,6 +54,11 @@ def parse_args() -> argparse.Namespace:
         default="predictive_shift_breadth_across_seeds",
         help="Output filename stem.",
     )
+    parser.add_argument(
+        "--analysis-subdir",
+        default=None,
+        help="Only include gridness_data.npz files whose parent folder matches this analysis subdirectory.",
+    )
     return parser.parse_args()
 
 
@@ -126,9 +131,26 @@ def summarize(values_cm: np.ndarray) -> Dict[str, float]:
     }
 
 
-def collect_seed_data(search_root: Path) -> List[Dict[str, object]]:
+def _matches_analysis_subdir(npz_path: Path, search_root: Path, analysis_subdir: str | None) -> bool:
+    if not analysis_subdir:
+        return True
+    wanted = Path(analysis_subdir)
+    try:
+        rel_parent = npz_path.parent.relative_to(search_root)
+    except ValueError:
+        return False
+    parts = rel_parent.parts
+    wanted_parts = wanted.parts
+    if len(parts) < len(wanted_parts):
+        return False
+    return parts[-len(wanted_parts):] == wanted_parts
+
+
+def collect_seed_data(search_root: Path, analysis_subdir: str | None = None) -> List[Dict[str, object]]:
     records: List[Dict[str, object]] = []
     for npz_path in sorted(search_root.rglob("gridness_data.npz")):
+        if not _matches_analysis_subdir(npz_path, search_root, analysis_subdir):
+            continue
         seed = extract_seed(npz_path)
         with np.load(npz_path) as d:
             if "classes_predictive" not in d.files:
@@ -285,7 +307,13 @@ def write_csv(records: List[Dict[str, object]], pooled_stats: Dict[str, float], 
         writer.writerow(pooled_row)
 
 
-def write_json(records: List[Dict[str, object]], pooled_stats: Dict[str, float], out_json: Path, search_root: Path) -> None:
+def write_json(
+    records: List[Dict[str, object]],
+    pooled_stats: Dict[str, float],
+    out_json: Path,
+    search_root: Path,
+    analysis_subdir: str | None = None,
+) -> None:
     payload = {
         "metric_definition": {
             "std_cm": "Standard deviation of preferred shift (cm) among predictive units.",
@@ -294,6 +322,7 @@ def write_json(records: List[Dict[str, object]], pooled_stats: Dict[str, float],
             "cv": "std_cm / |mean_cm|.",
         },
         "search_root": str(search_root),
+        "analysis_subdir": analysis_subdir,
         "seed_count": len(records),
         "pooled": pooled_stats,
         "records": [
@@ -310,7 +339,7 @@ def main() -> None:
     analysis_root = resolve_analysis_root(args.analysis_root)
     search_root = analysis_root / args.model_subdir if (analysis_root / args.model_subdir).exists() else analysis_root
 
-    records = collect_seed_data(search_root)
+    records = collect_seed_data(search_root, analysis_subdir=args.analysis_subdir)
     if not records:
         raise SystemExit(f"No gridness_data.npz with predictive classes found under: {search_root}")
 
@@ -322,10 +351,15 @@ def main() -> None:
     pooled_stats = summarize(pooled)
 
     if args.out_dir is None:
+        out_leaf = "predictive_shift_breadth"
+        if args.analysis_subdir:
+            safe_label = re.sub(r"[^A-Za-z0-9._-]+", "_", str(args.analysis_subdir)).strip("_")
+            if safe_label:
+                out_leaf = f"{out_leaf}_{safe_label}"
         if (analysis_root / args.model_subdir).exists():
-            out_dir = analysis_root / args.model_subdir / "summary" / "predictive_shift_breadth"
+            out_dir = analysis_root / args.model_subdir / "summary" / out_leaf
         else:
-            out_dir = analysis_root / "summary" / "predictive_shift_breadth"
+            out_dir = analysis_root / "summary" / out_leaf
     else:
         out_dir = Path(args.out_dir).expanduser()
 
@@ -336,7 +370,7 @@ def main() -> None:
 
     plot_figure(records, out_png)
     write_csv(records, pooled_stats, out_csv)
-    write_json(records, pooled_stats, out_json, search_root)
+    write_json(records, pooled_stats, out_json, search_root, analysis_subdir=args.analysis_subdir)
 
     print(f"[predictive_shift_breadth] search_root: {search_root}")
     print(f"[predictive_shift_breadth] seeds processed: {len(records)}")

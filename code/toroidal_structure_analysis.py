@@ -714,9 +714,11 @@ def plot_ring_diagnostics(samples: Dict[str, Tuple[np.ndarray, np.ndarray]], sav
 # Driver
 # --------------------------------------------------------------------------------------
 
-def load_gridness_data(ckpt_path: str) -> Dict[str, np.ndarray]:
-    out_dir = str(analysis_dir_for_checkpoint(Path(ckpt_path)))
-    path = os.path.join(out_dir, "gridness_data.npz")
+def load_gridness_data(ckpt_path: str, analysis_subdir: str | None = None) -> Dict[str, np.ndarray]:
+    out_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    if analysis_subdir:
+        out_dir = out_dir / str(analysis_subdir)
+    path = os.path.join(str(out_dir), "gridness_data.npz")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Missing gridness_data.npz beside checkpoint: {path}. Run multi_seed_predictive_analysis.py first.")
     data = np.load(path)
@@ -762,6 +764,11 @@ def parse_args():
     parser.add_argument("--class_dir", default=None, help="Optional directory containing saved predictive_ids_<suffix>.npy etc.")
     parser.add_argument("--class_suffix", default="random_walk", help="Suffix used for saved class files in --class_dir.")
     parser.add_argument("--output_dir", default=None, help="Optional output directory override.")
+    parser.add_argument(
+        "--analysis_subdir",
+        default=None,
+        help="Optional subdirectory under the checkpoint analysis folder from which to load gridness_data.npz and write torus outputs.",
+    )
     parser.add_argument("--batch_size", type=int, default=80)
     parser.add_argument("--sequence_length", type=int, default=20)
     parser.add_argument("--place_cell_rf", type=float, default=0.12)
@@ -808,7 +815,10 @@ def main():
     if args.output_dir:
         out_dir = str(Path(args.output_dir))
     else:
-        out_dir = str(analysis_dir_for_checkpoint(Path(args.checkpoint_path)) / "torus")
+        base_out_dir = analysis_dir_for_checkpoint(Path(args.checkpoint_path))
+        if args.analysis_subdir:
+            base_out_dir = base_out_dir / str(args.analysis_subdir)
+        out_dir = str(base_out_dir / "torus")
     os.makedirs(out_dir, exist_ok=True)
 
     if args.class_dir:
@@ -830,7 +840,7 @@ def main():
             "class_suffix": args.class_suffix,
         }
     else:
-        grid_data = load_gridness_data(args.checkpoint_path)
+        grid_data = load_gridness_data(args.checkpoint_path, args.analysis_subdir)
         # Grid-like units for basis (best gridness >= threshold)
         best_idx = np.nanargmax(grid_data["scores_60"], axis=0)
         best_vals = grid_data["scores_60"][best_idx, np.arange(grid_data["scores_60"].shape[1])]
@@ -846,6 +856,8 @@ def main():
         normal_units = classes.get("normal", np.array([], dtype=int)).tolist()
         class_source = {
             "mode": "gridness_data",
+            "analysis_subdir": args.analysis_subdir,
+            "shift_mode": str(np.asarray(grid_data.get("shift_mode", "unknown")).reshape(())),
             "gridness_threshold": float(args.gridness_threshold),
             "min_shift_cm": float(args.min_shift_cm),
         }

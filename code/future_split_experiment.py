@@ -76,6 +76,7 @@ except Exception as exc:  # pragma: no cover - smoke environment should have skl
 from model import RNN as CoreRNN
 from place_cells import PlaceCells
 from scores import GridScorer, band_scores
+from shift_utils import build_shift_values, shift_config_label, shift_values_to_cm
 from trajectory_generator import TrajectoryGenerator
 
 try:
@@ -1258,9 +1259,10 @@ def classify_units_from_scores(
     min_shift_cm: float,
     gridness_threshold: float,
 ) -> Dict[str, np.ndarray]:
-    # For each unit, find the temporal lag at which its 60-degree gridness score
-    # is highest. Positive best_cm means the unit's grid map aligns best with a
-    # future position; near-zero best_cm means ordinary/zero-lag grid coding.
+    # For each unit, find the shift at which its 60-degree gridness score is
+    # highest. Positive best_cm means the unit's grid map aligns best with a
+    # future/downstream position; near-zero best_cm means ordinary zero-shift
+    # grid coding.
     best_idx, best_vals = _safe_nanargmax(scores_60)
     best_cm = np.full(best_idx.shape, np.nan, dtype=float)
     valid = best_idx >= 0
@@ -1309,13 +1311,15 @@ def run_classify(args) -> Path:
     Ng_use = int(options.Ng) if Ng_use_arg == "all" else min(int(float(args.Ng_use)), int(options.Ng))
     log_info("[classify] checkpoint=%s", args.checkpoint_path)
     log_info(
-        "[classify] device=%s Ng_use=%d batches=%d batch_size=%d res=%d max_lag=%d",
+        "[classify] device=%s Ng_use=%d batches=%d batch_size=%d res=%d shift_mode=%s max_lag=%d max_shift_cm=%.2f",
         device,
         Ng_use,
         int(args.n_batches),
         int(args.batch_size),
         int(args.res),
+        str(getattr(args, "shift_mode", "time")),
         int(args.max_lag),
+        float(getattr(args, "max_shift_cm", 20.0)),
     )
     log_info("[classify] checkpoint_format=%s velocity_dim=%d", payload.get("format", "?"), int(options.velocity_dim))
 
@@ -1342,13 +1346,20 @@ def run_classify(args) -> Path:
     ends = np.linspace(0.4, 1.0, num=10)
     scorer = GridScorer(int(args.res), coord_range, zip(starts, ends.tolist()))
 
-    # Evaluate all integer time shifts from -max_lag through +max_lag.
-    # Example: max_lag=12 scores 25 shifts; max_lag=24 scores 49 shifts.
-    lags = list(range(-int(args.max_lag), int(args.max_lag) + 1))
+    shift_mode = str(getattr(args, "shift_mode", "time"))
+    space_projection = str(getattr(args, "space_projection", "path"))
+    shifts = build_shift_values(
+        shift_mode,
+        max_lag=int(args.max_lag),
+        max_shift_cm=float(getattr(args, "max_shift_cm", 20.0)),
+        shift_step_cm=float(getattr(args, "shift_step_cm", 1.0)),
+    )
     score_log_every = int(getattr(args, "score_log_every_units", 25))
     log_info(
-        "[classify] scoring %d lags across %d units; progress every %d units",
-        len(lags),
+        "[classify] scoring %d %s shifts (%s) across %d units; progress every %d units",
+        len(shifts),
+        shift_mode,
+        shift_config_label(shift_mode, space_projection),
         Ng_use,
         score_log_every,
     )
@@ -1356,23 +1367,29 @@ def run_classify(args) -> Path:
         xs,
         ys,
         activations,
-        lags,
-        shift_mode="time",
+        shifts,
+        shift_mode=shift_mode,
+        periodic=bool(getattr(options, "periodic", False)),
+        space_projection=space_projection,
         progress=True,
         progress_label="classify:gridness",
         progress_every=score_log_every,
         progress_callback=lambda msg: log_info("%s", msg),
     )
     cm_step = cm_per_step(xs, ys)
-    lag_cm = np.asarray(lags, dtype=float) * cm_step
+    lag_cm = shift_values_to_cm(shifts, shift_mode, cm_step)
 
     # Convert shifted gridness scores into predictive/retrospective/standard
     # unit-index arrays.
     classes = classify_units_from_scores(lag_cm, scores_60, args.min_shift_cm, args.gridness_threshold)
     best_idx, _ = _safe_nanargmax(scores_60)
     best_lag_steps = np.full(best_idx.shape, np.nan, dtype=float)
+    best_shift_values = np.full(best_idx.shape, np.nan, dtype=float)
     valid_best = best_idx >= 0
-    best_lag_steps[valid_best] = np.asarray(lags, dtype=float)[best_idx[valid_best]]
+    shift_values_arr = np.asarray(shifts, dtype=float)
+    best_shift_values[valid_best] = shift_values_arr[best_idx[valid_best]]
+    if shift_mode == "time":
+        best_lag_steps[valid_best] = shift_values_arr[best_idx[valid_best]]
     log_info("[classify] computing rate maps and band controls")
 
     # Band units are a control population selected from rate-map structure,
@@ -1393,8 +1410,9 @@ def run_classify(args) -> Path:
     # rerun without repeating the slow gridness scoring step.
     np.savez_compressed(
         out_dir / "gridness_data.npz",
-        shift_mode=np.array("time"),
-        shift_values=np.asarray(lags, dtype=float),
+        shift_mode=np.array(shift_mode),
+        space_projection=np.array(space_projection),
+        shift_values=shift_values_arr,
         lag_cm=lag_cm,
         scores_60=scores_60,
         scores_90=scores_90,
@@ -1406,6 +1424,7 @@ def run_classify(args) -> Path:
         low_grid_units=classes["low_grid"],
         best_cm=classes["best_cm"],
         best_lag_steps=best_lag_steps,
+        best_shift_values=best_shift_values,
         best_scores=classes["best_scores"],
         rate_maps=rate_maps,
         band_scores=band_vals,
@@ -1418,9 +1437,12 @@ def run_classify(args) -> Path:
     )
     summary = {
         "checkpoint_path": str(args.checkpoint_path),
+        "shift_mode": shift_mode,
+        "space_projection": space_projection if shift_mode == "space" else None,
+        "shift_config": shift_config_label(shift_mode, space_projection),
         "Ng_use": int(Ng_use),
         "cm_per_step": cm_step,
-        "lags": lags,
+        "shift_values": shift_values_arr,
         "lag_cm": lag_cm,
         "gridness_threshold": float(args.gridness_threshold),
         "min_shift_cm": float(args.min_shift_cm),
@@ -1441,6 +1463,13 @@ def run_classify(args) -> Path:
         int(classes["standard"].size),
         int(classes["low_grid"].size),
         int(band_units.size),
+    )
+    log_info(
+        "[classify] shift axis=%s range=%.2f..%.2f cm samples=%d",
+        shift_config_label(shift_mode, space_projection),
+        float(np.nanmin(lag_cm)) if lag_cm.size else float("nan"),
+        float(np.nanmax(lag_cm)) if lag_cm.size else float("nan"),
+        int(lag_cm.size),
     )
     log_info("[classify] wrote %s", out_dir)
     return out_dir
@@ -1742,7 +1771,11 @@ def preferred_lag_steps(grid_data: Dict[str, np.ndarray], Ng: int) -> np.ndarray
         vals = np.asarray(grid_data["best_lag_steps"], dtype=float).reshape(-1)
         if vals.size < Ng:
             vals = np.pad(vals, (0, Ng - vals.size), constant_values=np.nan)
-        return vals[:Ng]
+        if np.isfinite(vals[:Ng]).any():
+            return vals[:Ng]
+    shift_mode = str(np.asarray(grid_data.get("shift_mode", "time")).reshape(()))
+    if shift_mode == "space":
+        return np.full(Ng, np.nan, dtype=float)
     best_cm = np.asarray(grid_data.get("best_cm", np.full(Ng, np.nan)), dtype=float).reshape(-1)
     lag_cm = np.asarray(grid_data.get("lag_cm", []), dtype=float).reshape(-1)
     shifts = np.asarray(grid_data.get("shift_values", []), dtype=float).reshape(-1)
@@ -3788,6 +3821,10 @@ def run_smoke(args) -> Path:
         Ng_use=16,
         res=8,
         max_lag=2,
+        shift_mode="time",
+        space_projection="path",
+        max_shift_cm=4.0,
+        shift_step_cm=2.0,
         min_shift_cm=0.1,
         gridness_threshold=-1.0,
         band_percentile=80.0,
@@ -4047,6 +4084,30 @@ def parse_args(argv: Optional[Sequence[str]] = None):
     p_class.add_argument("--Ng_use", default="512")
     p_class.add_argument("--res", type=int, default=20)
     p_class.add_argument("--max_lag", type=int, default=12)
+    p_class.add_argument(
+        "--shift_mode",
+        default="time",
+        choices=["time", "space"],
+        help="Classify by aligning activity to shifted positions by timestep or by true spatial distance.",
+    )
+    p_class.add_argument(
+        "--space_projection",
+        default="path",
+        choices=["path", "heading"],
+        help="When --shift_mode space, use arc-length along the realized path or local heading projection.",
+    )
+    p_class.add_argument(
+        "--max_shift_cm",
+        type=float,
+        default=20.0,
+        help="When --shift_mode space, evaluate shifts from -max_shift_cm to +max_shift_cm.",
+    )
+    p_class.add_argument(
+        "--shift_step_cm",
+        type=float,
+        default=1.0,
+        help="When --shift_mode space, spacing between evaluated spatial shifts in cm.",
+    )
     p_class.add_argument("--min_shift_cm", type=float, default=5.0)
     p_class.add_argument("--gridness_threshold", type=float, default=0.2)
     p_class.add_argument("--band_percentile", type=float, default=90.0)

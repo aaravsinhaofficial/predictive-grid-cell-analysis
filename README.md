@@ -51,6 +51,16 @@ Notes:
 - Increase `--n_batches` or `--Ng_use` for smoother statistics; set `--ablation_batches 0` to skip ablations.
 - Trajectory knobs (speed, smoothing, wall behavior) are exposed via CLI flags in the script if you need to match a dataset.
 
+Spatial-shift rerun:
+```bash
+python code/reproduce_spatial_shift_results.py \
+  --analysis_subdir spatial_shift \
+  --space_projection path \
+  --max_shift_cm 20 \
+  --shift_step_cm 1
+```
+This reruns the RNN result suite with the shift axis indexed directly in centimeters along the realized trajectory, including class heatmaps, preferred-shift summaries, ablations, band-cell overlap, torus outputs, and matched-location/different-direction validation. Outputs are written under each checkpoint's `analysis_outputs/.../spatial_shift/` folder and summary folders are suffixed with `spatial_shift`, so older temporal results are not overwritten. Add `--future_split_checkpoint_paths <future_split_full.pth ...>` to also rerun the future-split classify/decode/crossing/intervene suite with spatial class labels.
+
 ### 3) Predictive/phase-precession/phase-locked heatmaps (single checkpoint)
 If you just need the class heatmaps + average curves (no scatter/ablation), run:
 ```bash

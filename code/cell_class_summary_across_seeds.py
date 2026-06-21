@@ -37,16 +37,25 @@ def _compute_best_cm(scores_60: np.ndarray, lag_cm: np.ndarray) -> np.ndarray:
     return best_cm
 
 
-def _load_gridness(ckpt_path: str) -> Dict[str, np.ndarray]:
-    npz_path = analysis_dir_for_checkpoint(Path(ckpt_path)) / "gridness_data.npz"
+def _load_gridness(ckpt_path: str, analysis_subdir: str | None = None) -> Dict[str, np.ndarray]:
+    analysis_dir = analysis_dir_for_checkpoint(Path(ckpt_path))
+    if analysis_subdir:
+        analysis_dir = analysis_dir / str(analysis_subdir)
+    npz_path = analysis_dir / "gridness_data.npz"
     if not npz_path.exists():
         raise FileNotFoundError(f"Missing gridness_data.npz for checkpoint: {ckpt_path}\nExpected: {npz_path}")
     with np.load(npz_path) as data:
         return {k: data[k] for k in data.files}
 
 
-def _record_from_checkpoint(ckpt_path: str, min_shift_cm: float, gridness_threshold: float, ng_use: int) -> Dict:
-    data = _load_gridness(ckpt_path)
+def _record_from_checkpoint(
+    ckpt_path: str,
+    min_shift_cm: float,
+    gridness_threshold: float,
+    ng_use: int,
+    analysis_subdir: str | None = None,
+) -> Dict:
+    data = _load_gridness(ckpt_path, analysis_subdir=analysis_subdir)
     scores_60 = np.asarray(data["scores_60"], dtype=float)
     lag_cm = np.asarray(data["lag_cm"], dtype=float)
     best_cm = np.asarray(data["best_cm"], dtype=float) if "best_cm" in data else _compute_best_cm(scores_60, lag_cm)
@@ -72,6 +81,8 @@ def _record_from_checkpoint(ckpt_path: str, min_shift_cm: float, gridness_thresh
 
     return {
         "checkpoint": ckpt_path,
+        "analysis_subdir": analysis_subdir,
+        "shift_mode": str(np.asarray(data.get("shift_mode", "unknown")).reshape(())),
         "seed": _seed_from_path(ckpt_path),
         "Ng_eval": ng_eval,
         "counts": {
@@ -205,11 +216,21 @@ def main() -> None:
     parser.add_argument("--min_shift_cm", type=float, default=5.0, help="Minimum shift magnitude for predictive/retrospective class.")
     parser.add_argument("--Ng_use", type=int, default=512, help="Number of units to include from each checkpoint (<=0 uses all cached).")
     parser.add_argument("--output_dir", default=None, help="Optional output folder override.")
+    parser.add_argument(
+        "--analysis_subdir",
+        default=None,
+        help="Optional subdirectory under each checkpoint analysis folder from which to load gridness_data.npz.",
+    )
     args = parser.parse_args()
 
     if args.output_dir is None:
         model_name = model_name_from_checkpoint(Path(args.checkpoint_paths[0]))
-        output_dir = analysis_summary_dir(model_name, "cross_seed_cell_class_summary")
+        summary_name = "cross_seed_cell_class_summary"
+        if args.analysis_subdir:
+            safe_label = re.sub(r"[^A-Za-z0-9._-]+", "_", str(args.analysis_subdir)).strip("_")
+            if safe_label:
+                summary_name = f"{summary_name}_{safe_label}"
+        output_dir = analysis_summary_dir(model_name, summary_name)
     else:
         output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -220,6 +241,7 @@ def main() -> None:
             min_shift_cm=float(args.min_shift_cm),
             gridness_threshold=float(args.gridness_threshold),
             ng_use=int(args.Ng_use),
+            analysis_subdir=args.analysis_subdir,
         )
         for ckpt in args.checkpoint_paths
     ]
@@ -239,6 +261,7 @@ def main() -> None:
         "Ng_use": int(args.Ng_use),
         "gridness_threshold": float(args.gridness_threshold),
         "min_shift_cm": float(args.min_shift_cm),
+        "analysis_subdir": args.analysis_subdir,
         "records": records,
         "pooled": pooled,
         "figure_path": str(plot_path),
@@ -251,4 +274,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

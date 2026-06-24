@@ -1,0 +1,222 @@
+{
+  "0": {
+    "Intact": {
+      "ablated_decoder_m": 0.049764601043005834,
+      "frozen_intact_decoder_m": 0.049764601043005834,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.2890193459775867,
+      "frozen_intact_decoder_m": 1.2890193459775867,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 0.9004757180698445,
+      "frozen_intact_decoder_m": 0.9004757180698445,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.9727759806768719,
+      "frozen_intact_decoder_m": 0.9727759806768719,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "1": {
+    "Intact": {
+      "ablated_decoder_m": 0.04776595825867715,
+      "frozen_intact_decoder_m": 0.04776595825867715,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.1092711911040447,
+      "frozen_intact_decoder_m": 1.1092711911040447,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 0.9731143268970457,
+      "frozen_intact_decoder_m": 0.9731143268970457,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.9631342690194404,
+      "frozen_intact_decoder_m": 0.9631342690194404,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "2": {
+    "Intact": {
+      "ablated_decoder_m": 0.050004630516538355,
+      "frozen_intact_decoder_m": 0.050004630516538355,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.080147909591695,
+      "frozen_intact_decoder_m": 1.080147909591695,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 0.779058286535069,
+      "frozen_intact_decoder_m": 0.779058286535069,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.9998708035686508,
+      "frozen_intact_decoder_m": 0.9998708035686508,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "3": {
+    "Intact": {
+      "ablated_decoder_m": 0.054061048170048476,
+      "frozen_intact_decoder_m": 0.054061048170048476,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 0.964053272460383,
+      "frozen_intact_decoder_m": 0.964053272460383,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 0.9437580373468668,
+      "frozen_intact_decoder_m": 0.9437580373468668,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.949330191756957,
+      "frozen_intact_decoder_m": 0.949330191756957,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "4": {
+    "Intact": {
+      "ablated_decoder_m": 0.05029715215477672,
+      "frozen_intact_decoder_m": 0.05029715215477672,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.264298591055056,
+      "frozen_intact_decoder_m": 1.264298591055056,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 1.0005253551580695,
+      "frozen_intact_decoder_m": 1.0005253551580695,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.9798102250357815,
+      "frozen_intact_decoder_m": 0.9798102250357815,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "5": {
+    "Intact": {
+      "ablated_decoder_m": 0.04898208625783595,
+      "frozen_intact_decoder_m": 0.04898208625783595,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.0530198173560081,
+      "frozen_intact_decoder_m": 1.0530198173560081,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 1.0028966657680858,
+      "frozen_intact_decoder_m": 1.0028966657680858,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 1.0086264863447896,
+      "frozen_intact_decoder_m": 1.0086264863447896,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "6": {
+    "Intact": {
+      "ablated_decoder_m": 0.053856997061761294,
+      "frozen_intact_decoder_m": 0.053856997061761294,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.0708381835391354,
+      "frozen_intact_decoder_m": 1.0708381835391354,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 1.0234795628853464,
+      "frozen_intact_decoder_m": 1.0234795628853464,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 1.0308230576166013,
+      "frozen_intact_decoder_m": 1.0308230576166013,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "7": {
+    "Intact": {
+      "ablated_decoder_m": 0.05134181368115123,
+      "frozen_intact_decoder_m": 0.05134181368115123,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.0699979392989674,
+      "frozen_intact_decoder_m": 1.0699979392989674,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 0.9422290840006551,
+      "frozen_intact_decoder_m": 0.9422290840006551,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 0.9828738748421986,
+      "frozen_intact_decoder_m": 0.9828738748421986,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "8": {
+    "Intact": {
+      "ablated_decoder_m": 0.06605166164683071,
+      "frozen_intact_decoder_m": 0.06605166164683071,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.116144394499672,
+      "frozen_intact_decoder_m": 1.116144394499672,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 1.0278460336663424,
+      "frozen_intact_decoder_m": 1.0278460336663424,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 1.030197518771323,
+      "frozen_intact_decoder_m": 1.030197518771323,
+      "max_abs_diff_m": 0.0
+    }
+  },
+  "9": {
+    "Intact": {
+      "ablated_decoder_m": 0.05553970989652342,
+      "frozen_intact_decoder_m": 0.05553970989652342,
+      "max_abs_diff_m": 0.0
+    },
+    "Predictive (N)": {
+      "ablated_decoder_m": 1.1044923477784447,
+      "frozen_intact_decoder_m": 1.1044923477784447,
+      "max_abs_diff_m": 0.0
+    },
+    "Random (N)": {
+      "ablated_decoder_m": 1.0460653986906954,
+      "frozen_intact_decoder_m": 1.0460653986906954,
+      "max_abs_diff_m": 0.0
+    },
+    "Structural grid (N)": {
+      "ablated_decoder_m": 1.0429399808437907,
+      "frozen_intact_decoder_m": 1.0429399808437907,
+      "max_abs_diff_m": 0.0
+    }
+  }
+}

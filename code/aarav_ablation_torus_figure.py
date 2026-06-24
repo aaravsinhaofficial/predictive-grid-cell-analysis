@@ -18,13 +18,16 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COND_ORDER = ["Intact", "Predictive (N)", "Random (N)", "Grid (N)",
-              "Predictive off-module (N')", "Random off-module (N')"]
+              "Predictive off-module (N')", "Random off-module (N')",
+              "Predictive in-module (N'')", "Non-pred in-module (N'')"]
 COND_COL = {"Intact": "#2ca02c", "Predictive (N)": "#d62728", "Random (N)": "#7f7f7f",
             "Grid (N)": "#1f77b4", "Predictive off-module (N')": "#ff9896",
-            "Random off-module (N')": "#c7c7c7"}
-SHORT = {"Intact": "Intact", "Predictive (N)": "Predictive\n(N)", "Random (N)": "Random\n(N)",
-         "Grid (N)": "Grid\n(N)", "Predictive off-module (N')": "Predictive\noff-module",
-         "Random off-module (N')": "Random\noff-module"}
+            "Random off-module (N')": "#c7c7c7", "Predictive in-module (N'')": "#7f0000",
+            "Non-pred in-module (N'')": "#525252"}
+SHORT = {"Intact": "Intact", "Predictive (N)": "Pred\n(N)", "Random (N)": "Rand\n(N)",
+         "Grid (N)": "Grid\n(N)", "Predictive off-module (N')": "Pred\noff-mod",
+         "Random off-module (N')": "Rand\noff-mod", "Predictive in-module (N'')": "Pred\nin-mod",
+         "Non-pred in-module (N'')": "NonPred\nin-mod"}
 
 
 def seed_dir(root, s, sub):
@@ -53,7 +56,7 @@ def main():
     def collect(metric, cond):
         return np.array([data[s]["conditions"][cond][metric] for s in seeds], float)
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.4))
+    fig, axes = plt.subplots(1, 2, figsize=(17, 5.6))
     fig.suptitle(f"Count-matched ablation of the toroidal manifold (N = #predictive); "
                  f"{len(seeds)} seeds, error bars = between-seed std", fontsize=13, fontweight="bold")
     specs = [("theta1_clumping", "Traversal clumping of theta1\n(0 = flows around ring, 1 = stuck)",
@@ -72,13 +75,19 @@ def main():
                        vals, color="k", s=14, zorder=5, alpha=0.7)
         ax.set_xticks(x); ax.set_xticklabels([SHORT[c] for c in COND_ORDER], fontsize=8)
         ax.set_ylabel(ylab); ax.set_title(title, loc="left", fontweight="bold"); ax.grid(alpha=0.25, axis="y")
-    # annotate the key contrasts (with vs without the module-membership confound)
+    # annotate the three contrasts: naive -> off-module (confound check) -> within-module (decisive)
     from scipy import stats as _st
-    pc = collect("theta1_clumping", "Predictive (N)"); rc = collect("theta1_clumping", "Random (N)")
-    po = collect("theta1_clumping", "Predictive off-module (N')"); ro = collect("theta1_clumping", "Random off-module (N')")
-    axes[0].annotate(f"Pred(N) vs Rand(N): Δ={np.mean(pc-rc):+.2f}, p={_st.wilcoxon(pc,rc).pvalue:.2f}\n"
-                     f"OFF-MODULE control: Δ={np.mean(po-ro):+.2f}, p={_st.wilcoxon(po,ro).pvalue:.2f} (n.s.)",
-                     xy=(0.30, 0.84), xycoords="axes fraction", fontsize=8.5, color="#d62728", fontweight="bold")
+    def dp(a, b):
+        x = collect("theta1_clumping", a); y = collect("theta1_clumping", b)
+        return float(np.mean(x - y)), float(_st.wilcoxon(x, y).pvalue)
+    d1, p1 = dp("Predictive (N)", "Random (N)")
+    d2, p2 = dp("Predictive off-module (N')", "Random off-module (N')")
+    d3, p3 = dp("Predictive in-module (N'')", "Non-pred in-module (N'')")
+    axes[0].annotate(
+        f"Naive  Pred(N) vs Rand(N):       Δ={d1:+.2f}, p={p1:.3f}\n"
+        f"Off-module (confound check): Δ={d2:+.2f}, p={p2:.3f}  n.s.\n"
+        f"WITHIN-module (decisive):     Δ={d3:+.2f}, p={p3:.3f}",
+        xy=(0.02, 0.80), xycoords="axes fraction", fontsize=8.5, color="#7f0000", fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.93])
     f1 = os.path.join(out_base, "torus_ablation_metrics_across_seeds.png")
     fig.savefig(f1, dpi=200, bbox_inches="tight"); fig.savefig(f1.replace(".png", ".svg"), bbox_inches="tight")

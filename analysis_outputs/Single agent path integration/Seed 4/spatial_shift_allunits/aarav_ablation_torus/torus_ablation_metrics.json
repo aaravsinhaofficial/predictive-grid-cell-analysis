@@ -4,6 +4,8 @@
   "toroidal_module": 336,
   "predictive_in_toroidal": 88,
   "predictive_off_module": 527,
+  "predictive_in_module": 88,
+  "nonpred_in_module": 248,
   "conditions": {
     "Intact": {
       "ring_spread": 0.36620518215730247,
@@ -75,6 +77,30 @@
       "theta1_clumping_std": 0.01824305730571297,
       "decode_rmse_cm_std": 2.218823787974446,
       "n_units": 527,
+      "n_draws": 4
+    },
+    "Predictive in-module (N'')": {
+      "ring_spread": 0.4272249986376144,
+      "minor_spread": 0.4200546841513131,
+      "theta1_clumping": 0.0982597542493559,
+      "decode_rmse_cm": 33.132572174072266,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 88,
+      "n_draws": 1
+    },
+    "Non-pred in-module (N'')": {
+      "ring_spread": 0.4099781632578656,
+      "minor_spread": 0.5081722040376349,
+      "theta1_clumping": 0.22832065425534045,
+      "decode_rmse_cm": 38.09511184692383,
+      "ring_spread_std": 0.014384581753494602,
+      "minor_spread_std": 0.015602687512984086,
+      "theta1_clumping_std": 0.09809892063986869,
+      "decode_rmse_cm_std": 1.8058096806417614,
+      "n_units": 88,
       "n_draws": 4
     },
     "All grid": {

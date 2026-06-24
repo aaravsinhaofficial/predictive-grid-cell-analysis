@@ -76,7 +76,7 @@ so "ablate predictive" partly = "ablate module cells." Three nested tests:
 - **Grid vs Random**: ring spread Δ +0.24, **10/10, p = 0.002**; off-manifold Δ +104×, **10/10, p = 0.002**. Grid cells robustly hold the geometry.
 - **Predictive vs Random**: predictive *preserves* shape (ring spread Δ −0.09, 3/10) and is not significantly more on-manifold (off-manifold p = 0.23, and that metric swings 100× across seeds — unreliable). **Predictive cells are not structural.**
 
-### Traversal — predictive cells contribute, but weakly
+### Traversal — predictive cells contribute, statistically significantly but borderline
 | condition | θ1 clumping (low = flows) |
 |---|---|
 | Intact | 0.22 ± 0.14 |
@@ -87,7 +87,7 @@ so "ablate predictive" partly = "ablate module cells." Three nested tests:
 
 - **Naive** Pred(N) vs Rand(N): Δ +0.20, **8/10, p = 0.010**. Suggestive, but confounded by module overlap.
 - **Off-module**: Δ +0.04, 5/10, **p = 0.49 (n.s.)** — predictive cells outside the module don't matter.
-- **Within-module (decisive)**: Pred-in vs NonPred-in Δ +0.09, **7/10, p = 0.049** — predictive coding adds a **weak but real** traversal effect *beyond* module membership.
+- **Within-module (decisive)**: Pred-in vs NonPred-in Δ +0.09, **7/10, p = 0.049** — predictive coding adds a **statistically significant (but borderline)** traversal effect *beyond* module membership.
 
 ### Full-population dynamics
 | | Predictive(N) | Random(N) | Structural-grid(N) |
@@ -133,9 +133,10 @@ vs standard grid 1.00 → 0.95). Predictive units are robustly **path/heading-de
 - **They do NOT build or hold the torus (geometry).** That is the broad grid-cell population —
   silencing grid cells wrecks the donut and throws activity off-manifold (robust, 10/10).
   Silencing predictive cells leaves the shape intact.
-- **They contribute weakly to traversal (flow around the torus).** The decisive within-module
-  control keeps a marginal effect (p ≈ 0.05): predictive grid cells help move activity around
-  the ring slightly more than non-predictive grid cells do. Borderline, not strong.
+- **They contribute to traversal (flow around the torus) — statistically significantly, though
+  borderline.** The decisive within-module control gives a significant effect (p = 0.049, 7/10
+  seeds): predictive grid cells help move activity around the ring more than count-matched
+  non-predictive grid cells do.
 - **They carry position information.** Removing them degrades the network's decoded position more
   than removing random cells (robust, 10/10) — consistent with their path/heading-dependence.
 - **They are NOT uniquely responsible for "advancing the state."** Under any ablation the state
@@ -148,17 +149,18 @@ vs standard grid 1.00 → 0.95). Predictive units are robustly **path/heading-de
 **One-line role:** predictive grid cells are a path/heading-dependent subset that **causally carries
 position information critical for accurate path integration** (freezing them most corrupts the
 decoded position, 10/10, p = 0.002). They are **not** what maintains the torus geometry (grid cells
-are), they make only a *weak, borderline* contribution to ring traversal, and the failure mode when
+are), they make a *statistically significant but borderline* contribution to ring traversal, and the failure mode when
 you remove them is "wrong place," not "stuck" — so "predictive cells *drive movement* along the
 manifold" is not the right description.
 
 ## 5. Caveats
-- The within-module traversal effect is right at p = 0.05 (7/10 seeds; 3 go the other way; effect
-  ≈ its own variance) and we ran many tests this session — treat as *suggestive*, not established.
+- The within-module traversal effect is statistically significant but borderline (p = 0.049, 7/10
+  seeds; 3 seeds go the other way; effect ≈ its own between-seed std), and many comparisons were run
+  this session — significant, but worth replicating before leaning on it heavily.
 - The off-manifold metric is wildly seed-variable (100× swing); geometry conclusions lean on
   *ring spread* (tight) and the structural-vs-random off-manifold contrast (robust).
 - Ablation is a blunt tool; a positive **intervention** (drive/freeze the predictive subspace and
-  test whether decoded position advances) would convert these null/weak ablation results into a
+  test whether decoded position advances) would convert these null / borderline ablation results into a
   direct causal test.
 
 Figures: `torus_ablation_metrics_across_seeds.png` (geometry + traversal + the 3 controls),

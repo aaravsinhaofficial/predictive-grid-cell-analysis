@@ -1,0 +1,68 @@
+{
+  "seed": 3,
+  "N_predictive": 621,
+  "toroidal_module": 168,
+  "predictive_in_toroidal": 69,
+  "conditions": {
+    "Intact": {
+      "ring_spread": 0.534697757199825,
+      "minor_spread": 0.48651396717204726,
+      "theta1_clumping": 0.18230658359915727,
+      "decode_rmse_cm": 55.712528228759766,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 0,
+      "n_draws": 1
+    },
+    "Predictive (N)": {
+      "ring_spread": 0.519775445103429,
+      "minor_spread": 0.7037410630449339,
+      "theta1_clumping": 0.4472225534013345,
+      "decode_rmse_cm": 71.25035858154297,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 621,
+      "n_draws": 1
+    },
+    "Random (N)": {
+      "ring_spread": 0.6580687557140832,
+      "minor_spread": 0.6983673059231363,
+      "theta1_clumping": 0.41120148176008187,
+      "decode_rmse_cm": 74.43564987182617,
+      "ring_spread_std": 0.05230114399071838,
+      "minor_spread_std": 0.05905972444327004,
+      "theta1_clumping_std": 0.14469878764639355,
+      "decode_rmse_cm_std": 2.838644134601643,
+      "n_units": 621,
+      "n_draws": 4
+    },
+    "Grid (N)": {
+      "ring_spread": 0.7683751400110329,
+      "minor_spread": 0.728821932236861,
+      "theta1_clumping": 0.565388508918229,
+      "decode_rmse_cm": 55.26382923126221,
+      "ring_spread_std": 0.03418696149233739,
+      "minor_spread_std": 0.08463139173149206,
+      "theta1_clumping_std": 0.13276344199069126,
+      "decode_rmse_cm_std": 11.719008306422937,
+      "n_units": 621,
+      "n_draws": 4
+    },
+    "All grid": {
+      "ring_spread": 0.0,
+      "minor_spread": 0.0,
+      "theta1_clumping": 1.0,
+      "decode_rmse_cm": 20.562772750854492,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 1907,
+      "n_draws": 1
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "seed": 4,
+  "N_predictive": 615,
+  "toroidal_module": 336,
+  "predictive_in_toroidal": 88,
+  "conditions": {
+    "Intact": {
+      "ring_spread": 0.36620518215730247,
+      "minor_spread": 0.4667974552182492,
+      "theta1_clumping": 0.12188205737095908,
+      "decode_rmse_cm": 33.876590728759766,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 0,
+      "n_draws": 1
+    },
+    "Predictive (N)": {
+      "ring_spread": 0.47727586707656716,
+      "minor_spread": 0.37025327775529865,
+      "theta1_clumping": 0.25451888211860646,
+      "decode_rmse_cm": 33.814735412597656,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 615,
+      "n_draws": 1
+    },
+    "Random (N)": {
+      "ring_spread": 0.6956979198048518,
+      "minor_spread": 0.67540722807978,
+      "theta1_clumping": 0.19603937190878717,
+      "decode_rmse_cm": 52.15721416473389,
+      "ring_spread_std": 0.12590186642772544,
+      "minor_spread_std": 0.08891346765899158,
+      "theta1_clumping_std": 0.054695751615654216,
+      "decode_rmse_cm_std": 6.098291314014536,
+      "n_units": 615,
+      "n_draws": 4
+    },
+    "Grid (N)": {
+      "ring_spread": 0.8931919106262083,
+      "minor_spread": 0.7576829313059732,
+      "theta1_clumping": 0.36709827830238917,
+      "decode_rmse_cm": 45.864158630371094,
+      "ring_spread_std": 0.07000854201334544,
+      "minor_spread_std": 0.027071662438652593,
+      "theta1_clumping_std": 0.09701171062588816,
+      "decode_rmse_cm_std": 3.888283857326849,
+      "n_units": 615,
+      "n_draws": 4
+    },
+    "All grid": {
+      "ring_spread": 0.0,
+      "minor_spread": 0.0,
+      "theta1_clumping": 1.0,
+      "decode_rmse_cm": 20.562772750854492,
+      "ring_spread_std": 0.0,
+      "minor_spread_std": 0.0,
+      "theta1_clumping_std": 0.0,
+      "decode_rmse_cm_std": 0.0,
+      "n_units": 2144,
+      "n_draws": 1
+    }
+  }
+}

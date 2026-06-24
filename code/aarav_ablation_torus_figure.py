@@ -17,8 +17,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-COND_ORDER = ["Intact", "Predictive (N)", "Random (N)", "Grid (N)"]
-COND_COL = {"Intact": "#2ca02c", "Predictive (N)": "#d62728", "Random (N)": "#7f7f7f", "Grid (N)": "#1f77b4"}
+COND_ORDER = ["Intact", "Predictive (N)", "Random (N)", "Grid (N)",
+              "Predictive off-module (N')", "Random off-module (N')"]
+COND_COL = {"Intact": "#2ca02c", "Predictive (N)": "#d62728", "Random (N)": "#7f7f7f",
+            "Grid (N)": "#1f77b4", "Predictive off-module (N')": "#ff9896",
+            "Random off-module (N')": "#c7c7c7"}
+SHORT = {"Intact": "Intact", "Predictive (N)": "Predictive\n(N)", "Random (N)": "Random\n(N)",
+         "Grid (N)": "Grid\n(N)", "Predictive off-module (N')": "Predictive\noff-module",
+         "Random off-module (N')": "Random\noff-module"}
 
 
 def seed_dir(root, s, sub):
@@ -64,12 +70,15 @@ def main():
             vals = collect(metric, c)
             ax.scatter(np.full(vals.size, i) + np.random.default_rng(i).uniform(-0.12, 0.12, vals.size),
                        vals, color="k", s=14, zorder=5, alpha=0.7)
-        ax.set_xticks(x); ax.set_xticklabels(COND_ORDER, fontsize=9)
+        ax.set_xticks(x); ax.set_xticklabels([SHORT[c] for c in COND_ORDER], fontsize=8)
         ax.set_ylabel(ylab); ax.set_title(title, loc="left", fontweight="bold"); ax.grid(alpha=0.25, axis="y")
-    # annotate the key paired contrast
+    # annotate the key contrasts (with vs without the module-membership confound)
+    from scipy import stats as _st
     pc = collect("theta1_clumping", "Predictive (N)"); rc = collect("theta1_clumping", "Random (N)")
-    axes[0].annotate(f"predictive vs random:\nΔ={np.mean(pc-rc):+.2f} ± {np.std(pc-rc):.2f}",
-                     xy=(0.5, 0.86), xycoords="axes fraction", fontsize=9, color="#d62728", fontweight="bold")
+    po = collect("theta1_clumping", "Predictive off-module (N')"); ro = collect("theta1_clumping", "Random off-module (N')")
+    axes[0].annotate(f"Pred(N) vs Rand(N): Δ={np.mean(pc-rc):+.2f}, p={_st.wilcoxon(pc,rc).pvalue:.2f}\n"
+                     f"OFF-MODULE control: Δ={np.mean(po-ro):+.2f}, p={_st.wilcoxon(po,ro).pvalue:.2f} (n.s.)",
+                     xy=(0.30, 0.84), xycoords="axes fraction", fontsize=8.5, color="#d62728", fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.93])
     f1 = os.path.join(out_base, "torus_ablation_metrics_across_seeds.png")
     fig.savefig(f1, dpi=200, bbox_inches="tight"); fig.savefig(f1.replace(".png", ".svg"), bbox_inches="tight")

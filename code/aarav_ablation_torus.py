@@ -89,12 +89,23 @@ def run_seed(seed, args, device):
         return run_condition(state, basis, opt, place_cells, traj_gen, cached, torch.device(device),
                              "cond", list(units), radii)
 
+    # Clean control: predictive cells OUTSIDE the toroidal module vs matched random off-module
+    # cells. Neither removes torus-defining (basis) units, so any traversal effect is the
+    # predictive function itself, not module membership.
+    pred_off = np.setdiff1d(predictive, tor_global)          # predictive, not in module
+    nontor = np.setdiff1d(all_units, tor_global)             # everything not in module
+    Nprime = int(pred_off.size)
+    print(f"    off-module control: predictive_off_module(N')={Nprime}  non_toroidal_pool={nontor.size}", flush=True)
+
     # condition -> list of unit-sets (multiple = random draws to average)
     cond_unitsets = {
         "Intact": [np.array([], dtype=int)],
         "Predictive (N)": [predictive],
         "Random (N)": [rng.choice(all_units, size=N, replace=False) for _ in range(args.n_draws)],
         "Grid (N)": [rng.choice(grid_all, size=min(N, grid_all.size), replace=False) for _ in range(args.n_draws)],
+        "Predictive off-module (N')": [pred_off if Nprime > 0 else np.array([], dtype=int)],
+        "Random off-module (N')": [rng.choice(nontor, size=min(Nprime, nontor.size), replace=False)
+                                   for _ in range(args.n_draws)] if Nprime > 0 else [np.array([], dtype=int)],
         "All grid": [grid_all],
     }
 
@@ -116,7 +127,7 @@ def run_seed(seed, args, device):
               f"  theta1_clump={agg['theta1_clumping']:.2f}  rmse={agg['decode_rmse_cm']:.0f}cm", flush=True)
 
     out = {"seed": seed, "N_predictive": N, "toroidal_module": int(tor_global.size),
-           "predictive_in_toroidal": n_pred_in_tor, "conditions": results}
+           "predictive_in_toroidal": n_pred_in_tor, "predictive_off_module": Nprime, "conditions": results}
     with open(os.path.join(out_dir, "torus_ablation_metrics.json"), "w") as f:
         json.dump(out, f, indent=2)
     np.savez_compressed(os.path.join(out_dir, "torus_coords.npz"), **vis)

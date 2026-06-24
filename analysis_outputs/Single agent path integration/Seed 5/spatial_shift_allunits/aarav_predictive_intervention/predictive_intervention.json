@@ -1,0 +1,32 @@
+{
+  "seed": 5,
+  "N_predictive": 766,
+  "conditions": {
+    "manual_match_max_dev": 0.0001685023307800293,
+    "Intact": {
+      "decode_error_m": 0.04898208625783595,
+      "advance_ratio": 1.4199297050250181
+    },
+    "Freeze predictive (N)": {
+      "n_units": 766,
+      "decode_error_m": 0.46918457023630333,
+      "decode_error_std": 0.45075729209023374,
+      "advance_ratio": 1.4136345490668338,
+      "advance_ratio_std": 1.895122801592829
+    },
+    "Freeze random (N)": {
+      "n_units": 766,
+      "decode_error_m": 0.3698297982419845,
+      "decode_error_std": 0.2822895552597791,
+      "advance_ratio": 1.37464951374242,
+      "advance_ratio_std": 1.218173914563627
+    },
+    "Freeze structural (N)": {
+      "n_units": 766,
+      "decode_error_m": 0.38398735196771955,
+      "decode_error_std": 0.2917467575446386,
+      "advance_ratio": 1.1002252123617486,
+      "advance_ratio_std": 1.5189280565373824
+    }
+  }
+}

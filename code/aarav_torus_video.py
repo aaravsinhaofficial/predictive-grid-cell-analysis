@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--n_traj", type=int, default=60)
     ap.add_argument("--trail", type=int, default=6)
     ap.add_argument("--fps", type=int, default=6)
+    ap.add_argument("--mode", choices=["cloud", "particles"], default="cloud")
+    ap.add_argument("--n_particles", type=int, default=6)
     args = ap.parse_args()
     device = args.device if torch.cuda.is_available() else "cpu"
     s = args.seed
@@ -116,24 +118,43 @@ def main():
     pad = 0.15 * (lim[1] - lim[0] + 1e-6)
     lo, hi = lim[0] - pad, lim[1] + pad
 
-    out = os.path.join(out_dir, f"torus_traversal_video_seed{s}.mp4")
+    # particle mode: pick the intact trajectories that traverse the most (largest unwrapped theta1 span)
+    th_intact = data[0][2]                                  # [T,B]
+    spans = np.array([np.ptp(np.unwrap(th_intact[:, b])) for b in range(B)])
+    part_ids = np.argsort(spans)[::-1][:args.n_particles]
+    pcol = plt.get_cmap("tab10")
+    bd = data[0][1].reshape(-1, 3)                          # intact ring as faint backdrop
+    bd_idx = np.random.default_rng(0).choice(bd.shape[0], size=min(1500, bd.shape[0]), replace=False)
+
+    suffix = "" if args.mode == "cloud" else "_particles"
+    out = os.path.join(out_dir, f"torus_traversal_video{suffix}_seed{s}.mp4")
     frames = []
     fig = plt.figure(figsize=(15, 9))
     axes = [fig.add_subplot(2, 3, i + 1, projection="3d") for i in range(6)]
     for t in range(T):
         for ax, (name, coords, th) in zip(axes, data):
             ax.cla()
-            a = max(0, t - args.trail)
-            tr = coords[a:t].reshape(-1, 3); trc = th[a:t].reshape(-1)
-            if tr.shape[0]:
-                ax.scatter(tr[:, 0], tr[:, 1], tr[:, 2], c=trc, cmap="hsv", s=4, alpha=0.18, linewidths=0)
-            cur = coords[t]; curc = th[t]
-            ax.scatter(cur[:, 0], cur[:, 1], cur[:, 2], c=curc, cmap="hsv", s=26, alpha=0.95, linewidths=0)
+            if args.mode == "cloud":
+                a = max(0, t - args.trail)
+                tr = coords[a:t].reshape(-1, 3); trc = th[a:t].reshape(-1)
+                if tr.shape[0]:
+                    ax.scatter(tr[:, 0], tr[:, 1], tr[:, 2], c=trc, cmap="hsv", s=4, alpha=0.18, linewidths=0)
+                cur = coords[t]; curc = th[t]
+                ax.scatter(cur[:, 0], cur[:, 1], cur[:, 2], c=curc, cmap="hsv", s=26, alpha=0.95, linewidths=0)
+            else:
+                # faint intact ring backdrop, then a few tracked particles with persistent trails
+                ax.scatter(bd[bd_idx, 0], bd[bd_idx, 1], bd[bd_idx, 2], color="0.6", s=3, alpha=0.07, linewidths=0)
+                for pi, b in enumerate(part_ids):
+                    path = coords[:t + 1, b]
+                    ax.plot(path[:, 0], path[:, 1], path[:, 2], color=pcol(pi % 10), lw=1.7, alpha=0.85)
+                    ax.scatter(coords[t, b, 0], coords[t, b, 1], coords[t, b, 2],
+                               color=pcol(pi % 10), s=80, edgecolor="k", zorder=6)
             ax.set_xlim(lo[0], hi[0]); ax.set_ylim(lo[1], hi[1]); ax.set_zlim(lo[2], hi[2])
             ax.set_xticks([]); ax.set_yticks([]); ax.set_zticks([])
             ax.set_box_aspect((1, 1, 0.55)); ax.view_init(elev=80, azim=0)
             ax.set_title(name, fontsize=11)
-        fig.suptitle(f"Activity on the torus over time — timestep {t+1}/{T} (seed {s})",
+        mtag = "cloud" if args.mode == "cloud" else f"{args.n_particles} tracked particles"
+        fig.suptitle(f"Activity on the torus over time ({mtag}) — timestep {t+1}/{T} (seed {s})",
                      fontsize=14, fontweight="bold")
         fig.tight_layout(rect=[0, 0, 1, 0.96])
         fig.canvas.draw()

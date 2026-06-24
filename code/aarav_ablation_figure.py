@@ -33,7 +33,7 @@ LABELS = {
 
 
 def load(seed, root, sub, mode):
-    p = os.path.join(_REPO, root, f"Seed {seed}", sub, "rob_activity_space_ablation",
+    p = os.path.join(_REPO, root, f"Seed {seed}", sub, "aarav_activity_space_ablation",
                      f"activity_space_ablation_{mode}.json")
     return json.load(open(p))
 
@@ -156,7 +156,7 @@ def main():
     ap.add_argument("--subdir", default="spatial_shift_allunits")
     args = ap.parse_args()
     data = [load(s, args.analysis_root, args.subdir, args.mode) for s in args.seeds]
-    out = os.path.join(_REPO, args.analysis_root, "summary", "rob_activity_space_ablation",
+    out = os.path.join(_REPO, args.analysis_root, "summary", "aarav_activity_space_ablation",
                        f"activity_space_ablation_{args.mode}.png")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     if args.mode == "count":

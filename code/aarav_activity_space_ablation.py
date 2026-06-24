@@ -21,8 +21,8 @@ Conditions: intact, predictive, structural_grid (grid-but-not-predictive), all_g
 Random / structural / all_grid (in count mode) draw random subsets, averaged over draws.
 
 Reuses gridness classes (no recomputation). Usage:
-  python code/rob_activity_space_ablation.py --mode count   --seeds 0 1 --device cuda
-  python code/rob_activity_space_ablation.py --mode percent --seeds 0 1 --device cuda
+  python code/aarav_activity_space_ablation.py --mode count   --seeds 0 1 --device cuda
+  python code/aarav_activity_space_ablation.py --mode percent --seeds 0 1 --device cuda
 """
 from __future__ import annotations
 import argparse, copy, json, os, sys, time
@@ -37,7 +37,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 _REPO = os.path.dirname(_HERE)
 
-from rob_crossing_population_correlation import load_model, load_classes
+from aarav_crossing_population_correlation import load_model, load_classes
 from multi_seed_predictive_analysis import zero_unit_weights_in_place
 
 
@@ -244,7 +244,7 @@ def parse_args():
     ap.add_argument("--model_root", default="Models/Single agent path integration")
     ap.add_argument("--analysis_root", default="analysis_outputs/Single agent path integration")
     ap.add_argument("--analysis_subdir", default="spatial_shift_allunits")
-    ap.add_argument("--out_subdir", default="rob_activity_space_ablation")
+    ap.add_argument("--out_subdir", default="aarav_activity_space_ablation")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--gridness_threshold", type=float, default=0.2)
     ap.add_argument("--min_shift_cm", type=float, default=5.0)

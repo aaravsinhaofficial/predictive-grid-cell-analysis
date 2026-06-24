@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Crossing-trajectory population-correlation analysis (Rob's X-crossings + William's binning).
+"""Crossing-trajectory population-correlation analysis (Aarav's X-crossings + William's binning).
 
-Probes PATH / HEADING dependence of predictive grid units in a trained path-integrating RNN.
+Paaraves PATH / HEADING dependence of predictive grid units in a trained path-integrating RNN.
 
 Two pipelines, designed to tell the same story:
 
-  (A) Rob's designed X-crossings.
+  (A) Aarav's designed X-crossings.
       Two straight "arms" are forced through the SAME physical location at the crossing
       step, but approach it with a controlled heading separation Delta-theta. We run the
       RNN on both arms and, AT the crossing, measure the population-activity correlation
@@ -29,7 +29,7 @@ BUG FIX (the "movement difference ~1e-8" artifact):
   speed distribution (the older code used ~7.5 cm/step, ~4x too fast / out of distribution).
 
 Usage:
-  python code/rob_crossing_population_correlation.py --seeds 0 1 --device cuda
+  python code/aarav_crossing_population_correlation.py --seeds 0 1 --device cuda
 """
 from __future__ import annotations
 
@@ -150,7 +150,7 @@ def mean_ci(vals: np.ndarray):
 
 
 # --------------------------------------------------------------------------------------
-# (A) Rob's designed X-crossings
+# (A) Aarav's designed X-crossings
 # --------------------------------------------------------------------------------------
 def build_x_crossings(place_cells, opt, n_pairs: int, seq_len: int, cross_t: int, step_m: float,
                       center_halfspan: float, rng: np.random.Generator, device: str):
@@ -203,7 +203,7 @@ def build_x_crossings(place_cells, opt, n_pairs: int, seq_len: int, cross_t: int
     }
 
 
-def run_rob_crossings(model, place_cells, opt, classes, device, rng,
+def run_aarav_crossings(model, place_cells, opt, classes, device, rng,
                       n_pairs=3000, seq_len=20, step_m=0.02, center_halfspan=0.7,
                       n_angle_bins=9, batch_pairs=2000):
     cross_t = seq_len // 2
@@ -345,7 +345,7 @@ def parse_args():
     ap.add_argument("--model_root", default="Models/Single agent path integration")
     ap.add_argument("--analysis_root", default="analysis_outputs/Single agent path integration")
     ap.add_argument("--analysis_subdir", default="spatial_shift_allunits")
-    ap.add_argument("--out_subdir", default="rob_crossing_population_corr")
+    ap.add_argument("--out_subdir", default="aarav_crossing_population_corr")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--gridness_threshold", type=float, default=0.2)
     ap.add_argument("--min_shift_cm", type=float, default=5.0)
@@ -374,11 +374,11 @@ def main():
         print(f"  classes: predictive={classes['predictive'].size} standard_grid={classes['standard_grid'].size} "
               f"retro={classes['retrospective'].size} grid_all={classes['grid_all'].size} Ng={classes['Ng']}", flush=True)
 
-        rob = run_rob_crossings(model, place_cells, opt, classes, device, rng,
+        aarav = run_aarav_crossings(model, place_cells, opt, classes, device, rng,
                                 n_pairs=args.n_pairs, seq_len=args.seq_len, step_m=args.step_cm / 100.0)
-        print(f"  [Rob X-crossings] n_pairs={rob['qc']['n_pairs']}  "
-              f"pos_diff@cross(mean/max)={rob['qc']['pos_diff_cross_mean_m']:.2e}/{rob['qc']['pos_diff_cross_max_m']:.2e} m  "
-              f"vel_diff@cross(mean/min)={rob['qc']['vel_diff_cross_mean_m']:.4f}/{rob['qc']['vel_diff_cross_min_m']:.4f} m", flush=True)
+        print(f"  [Aarav X-crossings] n_pairs={aarav['qc']['n_pairs']}  "
+              f"pos_diff@cross(mean/max)={aarav['qc']['pos_diff_cross_mean_m']:.2e}/{aarav['qc']['pos_diff_cross_max_m']:.2e} m  "
+              f"vel_diff@cross(mean/min)={aarav['qc']['vel_diff_cross_mean_m']:.4f}/{aarav['qc']['vel_diff_cross_min_m']:.4f} m", flush=True)
 
         will = run_william_same_bin(model, place_cells, traj_gen, opt, classes, device, rng,
                                     n_batches=args.sb_n_batches, batch_size=args.sb_batch_size, seq_len=args.seq_len)
@@ -389,7 +389,7 @@ def main():
             "seed": s, "checkpoint": ckpt, "gridness_path": gpath,
             "class_counts": {k: int(classes[k].size) for k in ["predictive", "standard_grid", "retrospective", "grid_all"]},
             "Ng": classes["Ng"], "params": vars(args),
-            "rob_x_crossings": rob, "william_same_bin": will,
+            "aarav_x_crossings": aarav, "william_same_bin": will,
         }
         with open(os.path.join(out_dir, "crossing_population_corr.json"), "w") as f:
             json.dump(result, f, indent=2)

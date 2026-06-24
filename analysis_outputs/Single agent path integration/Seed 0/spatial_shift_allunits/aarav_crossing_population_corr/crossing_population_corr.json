@@ -17,7 +17,7 @@
     "model_root": "Models/Single agent path integration",
     "analysis_root": "analysis_outputs/Single agent path integration",
     "analysis_subdir": "spatial_shift_allunits",
-    "out_subdir": "rob_crossing_population_corr",
+    "out_subdir": "aarav_crossing_population_corr",
     "device": "cuda",
     "gridness_threshold": 0.2,
     "min_shift_cm": 5.0,
@@ -28,7 +28,7 @@
     "sb_batch_size": 200,
     "seed": 12345
   },
-  "rob_x_crossings": {
+  "aarav_x_crossings": {
     "angle_bin_centers_deg": [
       10.0,
       30.0,

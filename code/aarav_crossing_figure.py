@@ -2,7 +2,7 @@
 """Combined figure for the crossing population-correlation analysis (Exp 1), seeds aggregated.
 
 Panels:
-  A. Rob's designed X-crossings: population correlation vs heading-separation angle.
+  A. Aarav's designed X-crossings: population correlation vs heading-separation angle.
   B. William's same-bin random walks: population correlation vs movement (velocity) difference.
   C. Decorrelation (1 - corr) at the largest movement difference, per class, for both methods.
   D. Bug-fix QC: the corrected movement axis (heading/velocity difference, non-zero) vs the
@@ -27,7 +27,7 @@ CLASS_STYLE = {
 
 def load_seed(seed, analysis_root, subdir):
     p = os.path.join(_REPO, analysis_root, f"Seed {seed}", subdir,
-                     "rob_crossing_population_corr", "crossing_population_corr.json")
+                     "aarav_crossing_population_corr", "crossing_population_corr.json")
     return json.load(open(p))
 
 
@@ -49,7 +49,7 @@ def main():
 
     data = [load_seed(s, args.analysis_root, args.subdir) for s in args.seeds]
     out = args.out or os.path.join(_REPO, args.analysis_root, "summary",
-                                   "rob_crossing_population_corr", "crossing_population_corr.png")
+                                   "aarav_crossing_population_corr", "crossing_population_corr.png")
     os.makedirs(os.path.dirname(out), exist_ok=True)
 
     fig, axes = plt.subplots(2, 2, figsize=(13, 10))
@@ -57,16 +57,16 @@ def main():
     fig.suptitle(f"Path dependence of predictive grid units — two pipelines agree (seeds {seed_str})",
                  fontsize=15, fontweight="bold")
 
-    # ---- Panel A: Rob X-crossings ----
+    # ---- Panel A: Aarav X-crossings ----
     ax = axes[0, 0]
-    ang = np.asarray(data[0]["rob_x_crossings"]["angle_bin_centers_deg"], float)
+    ang = np.asarray(data[0]["aarav_x_crossings"]["angle_bin_centers_deg"], float)
     for cls, st in CLASS_STYLE.items():
-        m, lo, hi = agg(data, lambda d, c=cls: d["rob_x_crossings"]["curves"][c]["mean"])
+        m, lo, hi = agg(data, lambda d, c=cls: d["aarav_x_crossings"]["curves"][c]["mean"])
         ax.plot(ang[:len(m)], m, marker="o", ms=4, **st)
         ax.fill_between(ang[:len(m)], lo, hi, color=st["color"], alpha=0.12)
     ax.set_xlabel("Heading-separation angle at crossing (deg)")
     ax.set_ylabel("Population activity correlation\n(same position, different heading)")
-    ax.set_title("A.  Rob: designed X-crossings", loc="left", fontweight="bold")
+    ax.set_title("A.  Aarav: designed X-crossings", loc="left", fontweight="bold")
     ax.legend(frameon=False, fontsize=9); ax.grid(alpha=0.25)
 
     # ---- Panel B: William same-bin ----
@@ -85,13 +85,13 @@ def main():
     # ---- Panel C: decorrelation at max difference ----
     ax = axes[1, 0]
     classes = ["predictive", "standard_grid", "retrospective", "random_matched"]
-    rob_dec, will_dec = [], []
+    aarav_dec, will_dec = [], []
     for c in classes:
-        rm, _, _ = agg(data, lambda d, cc=c: d["rob_x_crossings"]["curves"][cc]["mean"])
+        rm, _, _ = agg(data, lambda d, cc=c: d["aarav_x_crossings"]["curves"][cc]["mean"])
         wm, _, _ = agg(data, lambda d, cc=c: d["william_same_bin"]["curves"][cc]["mean"])
-        rob_dec.append(1 - rm[-1]); will_dec.append(1 - wm[-1])
+        aarav_dec.append(1 - rm[-1]); will_dec.append(1 - wm[-1])
     x = np.arange(len(classes)); w = 0.38
-    ax.bar(x - w/2, rob_dec, w, color=[CLASS_STYLE[c]["color"] for c in classes], alpha=0.95, label="Rob X-crossing")
+    ax.bar(x - w/2, aarav_dec, w, color=[CLASS_STYLE[c]["color"] for c in classes], alpha=0.95, label="Aarav X-crossing")
     ax.bar(x + w/2, will_dec, w, color=[CLASS_STYLE[c]["color"] for c in classes], alpha=0.5, hatch="//", label="William same-bin")
     ax.set_xticks(x); ax.set_xticklabels([CLASS_STYLE[c]["label"] for c in classes], rotation=20, ha="right", fontsize=9)
     ax.set_ylabel("Decorrelation (1 - corr) at largest\nmovement / heading difference")
@@ -100,7 +100,7 @@ def main():
 
     # ---- Panel D: bug-fix QC ----
     ax = axes[1, 1]
-    qc = data[0]["rob_x_crossings"]["qc"]["vel_diff_vs_angle"]
+    qc = data[0]["aarav_x_crossings"]["qc"]["vel_diff_vs_angle"]
     cdeg = np.asarray(qc["centers_deg"], float)
     veld = np.asarray(qc["vel_diff_m"], float) * 100  # cm
     posd = np.asarray(qc["pos_diff_m"], float) * 100  # cm

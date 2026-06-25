@@ -86,7 +86,8 @@ Removing the predictive grid cells does three things:
   genuine PGC traversal role, consistent with the θ1-clumping result.
 
 - **PGCs are not specially weighted.** Decoder-column norm and outgoing-recurrent-norm of predictive
-  cells ≈ structural grid cells (4.51 vs 4.60; 0.179 vs 0.182). So the predictive-specific traversal
+  cells ≈ structural grid cells (10-seed means: decoder-column norm 5.07 vs 5.22, outgoing-recurrent
+  norm 0.177 vs 0.182 — predictive if anything slightly lower). So the predictive-specific traversal
   effect is **dynamical / connectivity-pattern**, not "PGCs are high-leverage units."
 
 - **Drift + diffusion.** Predictive ablation shows both a systematic decoded-velocity bias

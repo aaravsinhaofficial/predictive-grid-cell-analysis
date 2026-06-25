@@ -34,11 +34,20 @@ function of lag τ (high & flat = unchanging; decaying = changing). Two controls
   than intact** (0.65 vs 0.52): the activity goes nowhere. Random ablation decorrelates like intact
   (keeps changing).
 - **Predictive > random in self-similarity: 10/10 seeds at lag 10 (p=0.002), 9/10 at lag 20
-  (p=0.004).**
+  (p=0.004).** These values are each measured on the condition's own surviving units.
+- **Unit-set control (important).** The numbers above compare different surviving populations
+  (predictive-ablated → structural cells; random-ablated → a random subset), so part of the gap
+  could be that structural cells are intrinsically more self-correlated. Re-measuring **all
+  conditions on the identical common surviving units** (grid minus predictive ∪ random) preserves
+  the effect: predictive 0.66 vs random 0.56 (**9/10, p=0.010**) and vs intact 0.55 (8/10, p=0.010).
+  Structural cells are only marginally more autocorrelated intrinsically in the intact net (0.55 vs
+  0.52, a +0.03 offset). So the freeze is a **genuine dynamics effect, not a unit-set artifact**,
+  though the clean predictive-vs-random significance is p=0.010 (not 0.004) and the fair
+  predictive-vs-intact gap is 0.66 vs 0.55 (smaller than the raw 0.65 vs 0.52).
 - Per-step "jitter" actually rises under any ablation (intact is smoothest); predictive jitters less
-  than random but not significantly. So predictive ablation is **jitter-in-place that does not
-  accumulate** (high long-lag autocorrelation), whereas random ablation's changes accumulate into
-  drift.
+  than random but not significantly (7/10, p=0.13). So predictive ablation is **jitter-in-place that
+  does not accumulate** (high long-lag autocorrelation), whereas random ablation's changes accumulate
+  into drift.
 - *Interpretation:* predictive cells are the forward-shifted, motion-encoding grid cells; removing
   them leaves the stable-phase cells, whose joint activity barely moves. Random ablation keeps the
   motion cells, so the population keeps evolving.
@@ -51,20 +60,24 @@ the same place modulo the grid lattice.
 
 **Method.** Decode the network's believed position each step (its own readout: top-3 place-cell
 centres of `decoder(g)`). Get the grid lattice from the FFT of the grid population's average rate
-map → reciprocal vectors `k1, k2`. For each decoded position `p`, fold it into one lattice unit cell:
-`u = K·p` (lattice coordinates) → `frac = u − round(u)` (within-tile phase) → `p_within = K⁻¹·frac`.
-Done **per trajectory** (each trajectory's own circular-mean phase as reference) so trajectories at
-different phases are not conflated. Define `aliasing index = 1 − (folded spread) / (physical spread)`
-— it is ~1 if the wander is entirely jumps between grid-field replicas of one phase, ~0 if the
-positions genuinely span different phases. Also report the fraction of large decoded jumps (>30 cm)
-whose change in lattice coordinates is an integer (a pure tile-to-tile translation).
+map → reciprocal vectors `k1, k2`. For each decoded position compute its lattice phase `u = K·p`
+(in cycles; `ph = 2π·u`). The test is done **per trajectory** so trajectories sitting at different
+phases are not conflated: take the within-tile residual of each position's phase **relative to that
+trajectory's circular-mean phase** (`angle(exp(i(ph − mean_phase)))` per lattice axis), convert it
+to metres (`K⁻¹`), and let the **within-cell spread** be the RMS of that residual and the
+**physical spread** be the RMS Euclidean displacement from the mean. Define
+`aliasing index = 1 − (within-cell spread) / (physical spread)` — ~1 if the wander is entirely jumps
+between grid-field replicas of one phase, ~0 if the positions genuinely span different phases. The
+intact aliasing index (~0.02) is the built-in control that this metric is not trivially inflated.
+Separately, the "lattice-translation" metric folds each large decoded jump (>30 cm) by its
+nearest-integer lattice step (`du − round(du)`) and reports the fraction that fold to ≈0.
 
 **Result (10 seeds).**
 
 | | physical wander | folded into one tile | aliasing index | big jumps that are lattice translations |
 |---|---|---|---|---|
 | Intact | 0.23 m | 0.22 m | 0.02 | — |
-| **Predictive ablated** | **0.69 m** | **0.31 m** | **0.52** | **0.60** |
+| **Predictive ablated** | **0.69 m** | **0.31 m** | **0.52** | **0.61** |
 | Random ablated (N) | 0.64 m | 0.33 m | 0.46 | 0.64 |
 
 - **~52% of the predictive-ablated wander collapses when folded into one tile** — those "different"

@@ -1,0 +1,76 @@
+{
+  "true_step": {
+    "median_cm": 1.8825401067733765,
+    "mean_cm": 2.0014309883117676,
+    "p10_cm": 0.6578458547592163,
+    "p90_cm": 3.4783647060394287,
+    "std_cm": 1.0921458005905151
+  },
+  "N_predictive": 621,
+  "n_grid": 1907,
+  "Intact": {
+    "n_units": 0,
+    "decoded_step": {
+      "median_cm": 0.0,
+      "mean_cm": 3.625385554131507,
+      "p10_cm": 0.0,
+      "p90_cm": 7.529629979128696,
+      "std_cm": 10.934764267573607
+    },
+    "decode_error_end_m": 0.06901753472216945,
+    "decode_error_mean_m": 0.07752199722400652,
+    "decoded_net_disp_m": 0.6873285113633211
+  },
+  "Predictive-ablated": {
+    "n_units": 621,
+    "decoded_step": {
+      "median_cm": 19.053188172248053,
+      "mean_cm": 34.4128812285067,
+      "p10_cm": 0.0,
+      "p90_cm": 91.00535710944544,
+      "std_cm": 42.13065169987507
+    },
+    "decode_error_end_m": 1.154435087084339,
+    "decode_error_mean_m": 0.967861561929503,
+    "decoded_net_disp_m": 1.1502051637488995
+  },
+  "Grid-ablated": {
+    "n_units": 1907,
+    "decoded_step": {
+      "median_cm": 27.707474020880262,
+      "mean_cm": 30.357321457158434,
+      "p10_cm": 0.0,
+      "p90_cm": 62.35978074179527,
+      "std_cm": 28.36511578169646
+    },
+    "decode_error_end_m": 0.9502161696446839,
+    "decode_error_mean_m": 0.9707008923939,
+    "decoded_net_disp_m": 0.6700286419029947
+  },
+  "Structural-ablated (N)": {
+    "n_units": 621,
+    "decoded_step": {
+      "median_cm": 37.95148166279814,
+      "mean_cm": 42.10683335763077,
+      "p10_cm": 0.0,
+      "p90_cm": 91.58088086177423,
+      "std_cm": 35.2954127907284
+    },
+    "decode_error_end_m": 1.0561491962602205,
+    "decode_error_mean_m": 0.9930559593766336,
+    "decoded_net_disp_m": 0.7917901526136115
+  },
+  "Random-ablated (N)": {
+    "n_units": 621,
+    "decoded_step": {
+      "median_cm": 23.827664891991198,
+      "mean_cm": 39.35014760633783,
+      "p10_cm": 0.0,
+      "p90_cm": 101.7634974877204,
+      "std_cm": 46.356409498246634
+    },
+    "decode_error_end_m": 1.131327088526818,
+    "decode_error_mean_m": 0.8085493665645069,
+    "decoded_net_disp_m": 0.9667415815066487
+  }
+}

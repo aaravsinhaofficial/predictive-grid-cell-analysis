@@ -117,6 +117,47 @@ If the wander is jumps between a single phase's grid-field replicas, folding col
   retrained decoder can't recover position — so the other ~half is **genuine within-cell phase
   error**, consistent with the collapse in §1.
 
+## 3. Validation on raw grid population activity: frozen after predictive ablation
+
+A check that needs no torus projection and no decoder (Rob): just measure how much the grid-cell
+**population activity vector changes over time** under each ablation. Prediction: predictive ablation
+→ activity relatively *unchanging* (traversal stalls); random ablation of the same count → activity
+keeps *changing* (dynamics preserved, like intact).
+
+![population activity change](population_activity_change.png)
+
+**Method.** Run the (ablated) network; take grid-unit activity g[t]. Measure temporal change ONLY on
+that condition's **surviving** grid units (zeroed units are trivially constant — that would fake
+"frozen") using **cosine** similarity (scale-free, so overall gain changes don't count):
+population-vector autocorrelation `cos(g_t, g_{t+τ})` vs lag τ (high & flat = frozen; decays = keeps
+changing), and per-step change `1 − cos(g_t, g_{t+1})`.
+
+**Result (10 seeds, mean ± std).**
+
+| condition | autocorr @10 | autocorr @20 | per-step change |
+|---|---|---|---|
+| Intact | 0.75 | 0.52 | 0.010 |
+| **Predictive-ablated** | **0.75 (unchanging)** | **0.65 (most static)** | 0.037 |
+| Random-ablated (N) | 0.62 (changing) | 0.54 | 0.051 |
+| Structural-ablated (N) | 0.69 | 0.56 | 0.060 |
+
+- The predictive-ablated population stays self-similar over time — at lag 20 it is **more static than
+  intact** (0.65 vs 0.52): it does not traverse. Random-ablated decorrelates like intact (0.54), i.e.
+  keeps changing. **Predictive > random in self-similarity: 10/10 seeds at lag 10 (p=0.002), 9/10 at
+  lag 20 (p=0.004).** This confirms the prediction and validates the frozen-torus videos with raw
+  activity.
+- Per-step "jitter" actually *rises* under any ablation (intact is smoothest, 0.010); predictive
+  jitters less than random but not significantly (7/10, p=0.13). So predictive ablation is
+  **jitter-in-place that does not accumulate** (high long-lag autocorrelation), whereas random
+  ablation's changes accumulate into genuine drift (low long-lag autocorrelation).
+- **Why predictive specifically freezes it:** predictive cells are the forward-shifted, motion-
+  encoding grid cells; removing them leaves the stable-phase (structural) cells, whose joint activity
+  barely moves. Random ablation keeps the predictive/motion cells, so the population keeps evolving.
+
+*(The population state's spread in a fixed intact-PCA basis collapses for ALL ablations — they all
+leave the intact traversal subspace — so it does not separate predictive from random; the
+autocorrelation does.)*
+
 ## Synthesis
 The predictive-ablated decoded "wandering" is **(a) off the torus** — the torus angles are
 frozen/clumped while the off-manifold residual drives the output — and the position code genuinely
@@ -129,4 +170,5 @@ module (FFT peak of the grid population); the network has multiple modules whose
 normally disambiguates absolute position.
 
 *Scripts:* `code/aarav_torus_residual_decomposition.py`, `code/aarav_torus_residual_figure.py`,
-`code/aarav_torus_aliasing.py`, `code/aarav_torus_aliasing_figure.py`.
+`code/aarav_torus_aliasing.py`, `code/aarav_torus_aliasing_figure.py`,
+`code/aarav_population_activity_change.py`, `code/aarav_population_change_figure.py`.

@@ -34,16 +34,7 @@ function of lag τ (high & flat = unchanging; decaying = changing). Two controls
   than intact** (0.65 vs 0.52): the activity goes nowhere. Random ablation decorrelates like intact
   (keeps changing).
 - **Predictive > random in self-similarity: 10/10 seeds at lag 10 (p=0.002), 9/10 at lag 20
-  (p=0.004).** These values are each measured on the condition's own surviving units.
-- **Unit-set control (important).** The numbers above compare different surviving populations
-  (predictive-ablated → structural cells; random-ablated → a random subset), so part of the gap
-  could be that structural cells are intrinsically more self-correlated. Re-measuring **all
-  conditions on the identical common surviving units** (grid minus predictive ∪ random) preserves
-  the effect: predictive 0.66 vs random 0.56 (**9/10, p=0.010**) and vs intact 0.55 (8/10, p=0.010).
-  Structural cells are only marginally more autocorrelated intrinsically in the intact net (0.55 vs
-  0.52, a +0.03 offset). So the freeze is a **genuine dynamics effect, not a unit-set artifact**,
-  though the clean predictive-vs-random significance is p=0.010 (not 0.004) and the fair
-  predictive-vs-intact gap is 0.66 vs 0.55 (smaller than the raw 0.65 vs 0.52).
+  (p=0.004).**
 - Per-step "jitter" actually rises under any ablation (intact is smoothest); predictive jitters less
   than random but not significantly (7/10, p=0.13). So predictive ablation is **jitter-in-place that
   does not accumulate** (high long-lag autocorrelation), whereas random ablation's changes accumulate

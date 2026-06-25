@@ -11,6 +11,56 @@ Two questions, 10 seeds, all 4096 units, seq-len 40:
 ![decomposition](torus_residual_decomposition.png)
 ![aliasing](torus_aliasing.png)
 
+## Plain-language summary
+A grid module is like a **clock with no date**: it tells you where you are within one repeating
+tile of space, but every tile looks identical, so one "phase" matches many physical spots (one per
+tile). The network normally combines several such clocks to know which tile it is actually in.
+
+Removing the predictive grid cells does three things:
+1. **The clock freezes** — on the torus the activity stops moving and sits near one phase (this is
+   the "clumping" seen in the meeting).
+2. **The readout still wanders**, for two reasons, about half each:
+   - **"Same spot, wrong tile" (grid aliasing).** One frozen phase matches one spot in *every*
+     tile, so the decoder paints the position onto those repeated grid-field locations. Fold the
+     scattered points back into a single tile and they collapse — they were the same place.
+   - **Genuinely lost.** A freshly trained decoder cannot recover the true position from the
+     leftover activity, so the position signal has really degraded, not just been relabeled.
+3. **It is the dynamics, not "special cells."** Predictive cells have ordinary weights; removing
+   them breaks the *motion* of the clock (their specific job), but the overall damage is about as
+   bad if you remove the same number of random cells.
+
+## Methodology
+- **Models / data.** 10 trained path-integrating RNNs (Ng=4096 hidden, Np=512 place-cell outputs,
+  2.2 m box, seq-len 40). Cells classified from the spatial-shift gridness data: *predictive* =
+  gridness peak at positive shift ≥5 cm, *grid_all* = all grid cells, *structural* = grid minus
+  predictive. Test set = 128 fresh random-walk trajectories per seed. All analyses use all 4096
+  units; ablation = zeroing a unit's encoder/decoder/recurrent weights so its activity is exactly 0.
+- **Decoding.** The network's believed position is `D(g) = top-3 place-cell centres of decoder(g)`
+  (its own trained readout). "Spread / gyration" = sqrt(mean squared distance of a path to its own
+  mean) — low = stays put, ≈true = tracks, high = wanders.
+- **Torus basis.** FFT of the grid population's average rate map gives the reciprocal lattice
+  (k1, k2); the coherent module is detected (UMAP+DBSCAN) and per-unit phases fit. Activity is
+  projected to torus angles (θ1, θ2). The **torus-phase path** integrates dθ through the lattice
+  (`Δp = K⁻¹·Δθ`, anchored at the true start) — a periodicity-free "position the torus angles imply."
+  *(We deliberately do not decode the binned reconstruction `D(m(θ))`: a single module is periodic,
+  so it cannot specify absolute position and looks dispersed even for intact activity.)*
+- **Retrained decoder (collapse vs distribution-shift).** Ridge regression fit from ablated activity
+  to (i) position and (ii) the true place-cell code, 3-fold cross-validated, then decoded with the
+  same top-3 rule. If a fresh decoder recovers position → the original was just looking in the wrong
+  place (distribution shift); if it cannot → spatial information has genuinely collapsed.
+- **Traversal / drift / weights.** Traversal = torus winding number (net turns of θ1 over 40 steps).
+  Drift = mean decoded-velocity error (systematic bias); diffusion = growth of cross-trial error
+  variance. Weight load = L2 norm of each unit's decoder column and outgoing recurrent column, by
+  class.
+- **Grid aliasing test.** Fold each decoded position into one lattice unit cell:
+  `u = K·p` (lattice coords) → `frac = u − round(u)` (within-cell phase) → `p_within = K⁻¹·frac`.
+  Done **per trajectory** (circular mean phase per trajectory) so trajectories sitting at different
+  phases are not conflated. `aliasing index = 1 − within-cell spread / physical spread`
+  (→1 means the wander is entirely jumps between grid-field replicas of one phase). Also: fraction of
+  large decoded jumps (>30 cm) whose lattice-coordinate change is an integer (a pure tile-to-tile
+  translation). Lattice = the single dominant module (strongest FFT peak).
+- **Stats.** Paired Wilcoxon across the 10 seeds.
+
 ## 1. The wandering is OFF the torus; the position code collapses
 
 - **Output wanders, torus is frozen.** The decoded-output spread (gyration) is large for predictive

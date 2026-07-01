@@ -1,0 +1,21 @@
+{
+  "seed": 5,
+  "module": 89,
+  "N_predictive": 766,
+  "Intact": {
+    "occupancy_spread": 0.2857742588499518,
+    "off_manifold": 0.8514975396940349
+  },
+  "Predictive-ablated": {
+    "occupancy_spread": 0.1709095013063915,
+    "off_manifold": 1.3624687088536387
+  },
+  "Grid-ablated": {
+    "occupancy_spread": 0.0,
+    "off_manifold": 1.463716759637779
+  },
+  "Random-ablated (N)": {
+    "occupancy_spread": 0.1720178133557308,
+    "off_manifold": 1.3762578450639715
+  }
+}

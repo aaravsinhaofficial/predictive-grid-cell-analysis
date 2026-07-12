@@ -53,6 +53,37 @@ random-walk-like training. The freeze phenomenon is therefore **intrinsic to gri
 networks**, not an artifact of the random-walk evaluation (which we already showed separately: the
 freeze persists when random-walk-trained nets are *evaluated* on straight paths, p=0.004).
 
+## The straight-trained nets DID learn the task (it is not undertraining)
+Final path-integration decoding error: **Seed 0 ≈ 6.7 cm, Seed 1 ≈ 7.5 cm** — essentially matching a
+random-walk-trained net (**6.1 cm**). So the straight-trained networks successfully learned path
+integration; they simply solved it with **band/stripe cells** rather than hexagonal grids. This makes
+the finding stronger: it is a genuine alternative solution, not a failed network.
+
+## What the Drive analysis data actually contains (checked)
+- The **straight-trained** folders contain *no* analysis — only `epoch_*.pth`, `loss.npy`,
+  `decoding_error.npy`. Ours is the first grid analysis of these nets.
+- The **random-walk** folder (`random_walk/Seed 0/analysis_outputs/predictive_retrospective/`) *does*
+  contain analysis, in both `_random_walk` and `_straight` variants — but that is **straight
+  *evaluation* of the random-walk-*trained* net**, not the straight-trained nets. Under straight
+  evaluation the RW-trained net keeps **1201 grid / 348 predictive / 350 retrospective** cells
+  (threshold 0.5), and its example grid unit stays clearly hexagonal (rate maps + 6-peak
+  autocorrelograms). So there are **two different "straight" analyses**: straight *evaluation* of a
+  grid-developing net (keeps grids) vs straight-*trained* nets (barely any grids). This matches our
+  separate autocorrelation result: the PGC freeze persists when random-walk-trained nets are
+  *evaluated* on straight paths (p=0.004).
+
+## Best-shift caveat (why the conclusion holds regardless)
+The gate used **zero-shift** gridness; predictive grid cells peak at a spatial shift (Will's RW net:
+predictive gridness 0.14 at zero shift → 0.34 at best shift), so in principle zero-shift could
+undercount shift-defined grids. A full best-shift check (gridness maximised over spatial shifts for all
+4096 units) is the airtight version, but at 4096-unit scale it is computationally prohibitive
+(~15–30 min/net for the SAC sweep) and was not completed. The conclusion does not depend on it, for two
+reasons: (1) the **rate-map morphology** — the straight nets' highest-gridness cells are visibly
+stripe/border/noise cells, not hexagons, and shifting a non-hexagonal cell cannot make it hexagonal;
+(2) Will's own example shows shifting a genuine grid cell **preserves** its hexagon (moves it) rather
+than creating one. So a hidden population of shift-defined hexagonal grids is not plausible. If an exact
+best-shift count is wanted, the sweep can be run as a longer background job.
+
 ## Caveats / limitations
 - Only **2** straight-trained seeds exist, so no 10-seed statistics are possible regardless.
 - Gridness sampled at res=20; the qualitative gap (≈50× fewer strong grids) is far larger than any

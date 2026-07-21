@@ -1,0 +1,9 @@
+{
+  "checkpoint": "Models/canonical_cohort_v1/seed_3/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+  "seed_id": 3,
+  "Ng": 256,
+  "collection_seed": 4321,
+  "n_grid_units": 110,
+  "n_modules": 3,
+  "median_spacing_cm": 99.00000000000001
+}

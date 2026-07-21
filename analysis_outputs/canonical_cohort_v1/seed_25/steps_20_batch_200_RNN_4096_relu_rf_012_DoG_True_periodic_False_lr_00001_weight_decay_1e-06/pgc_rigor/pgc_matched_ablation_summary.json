@@ -1,0 +1,101 @@
+{
+  "checkpoint": "Models/canonical_cohort_v1/seed_25/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+  "seed_id": 25,
+  "device": "cuda",
+  "Ng_total": 4096,
+  "Ng_eval": 256,
+  "baseline_error_cm": 4.670166331982595,
+  "chance_ceiling_cm": 117.50398296378958,
+  "grid_pool_size": 76,
+  "class_counts": {
+    "predictive": 25,
+    "retrospective": 10,
+    "normal": 41
+  },
+  "random_trials": 5,
+  "ablation_batches": 8,
+  "match_exact_module": false,
+  "covariate_keys": [
+    "module",
+    "gridness",
+    "bandness",
+    "rate_var",
+    "hd_r",
+    "decoder_mag",
+    "rec_in",
+    "rec_out"
+  ],
+  "runtime_s": 7.2,
+  "preceiling_slopes": {
+    "predictive": {
+      "target": {
+        "slope_cm_per_unit": 0.011713941786662418,
+        "ci_lo": 0.00998425401334169,
+        "ci_hi": 0.013593477019279024,
+        "n_points": 6,
+        "ceiling_frac": 0.9
+      },
+      "matched": {
+        "slope_cm_per_unit": 0.012484392715801575,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 6,
+        "ceiling_frac": 0.9
+      },
+      "random": {
+        "slope_cm_per_unit": 0.0784460040993442,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 6,
+        "ceiling_frac": 0.9
+      }
+    },
+    "retrospective": {
+      "target": {
+        "slope_cm_per_unit": 0.005431691240324852,
+        "ci_lo": 0.003784678513902386,
+        "ci_hi": 0.006983043297109833,
+        "n_points": 5,
+        "ceiling_frac": 0.9
+      },
+      "matched": {
+        "slope_cm_per_unit": 0.02081205526820231,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 5,
+        "ceiling_frac": 0.9
+      },
+      "random": {
+        "slope_cm_per_unit": 0.015368794243026843,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 5,
+        "ceiling_frac": 0.9
+      }
+    },
+    "normal": {
+      "target": {
+        "slope_cm_per_unit": 0.11211699418384978,
+        "ci_lo": 0.10151414448278163,
+        "ci_hi": 0.13056341870244115,
+        "n_points": 7,
+        "ceiling_frac": 0.9
+      },
+      "matched": {
+        "slope_cm_per_unit": 0.012429224095053204,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 7,
+        "ceiling_frac": 0.9
+      },
+      "random": {
+        "slope_cm_per_unit": 0.01249136000746081,
+        "ci_lo": NaN,
+        "ci_hi": NaN,
+        "n_points": 7,
+        "ceiling_frac": 0.9
+      }
+    }
+  },
+  "note": "Pre-ceiling slope = cm decoding error added per unit removed, fit over doses below 0.9*chance_ceiling. Compare 'target' vs 'matched' per group to read off whether the functional class is uniquely damaging beyond its covariate-matched control."
+}

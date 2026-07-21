@@ -86,10 +86,22 @@ assembled per unit in `code/pgc_covariates.py` from one collection:
   *not yet* uniquely damaging, is reported honestly rather than hidden by
   saturation.
 
-*Status: implemented (agent-built, verified). See module summary for the
-per-group low-dose slopes.* The scientific claim ("predictive ablation is
-uniquely damaging") is to be read off the matched-vs-predictive slopes, not
-asserted.
+*Status: implemented and run across the full 30-seed cohort.*
+
+**Cross-seed result (30 seeds, pre-ceiling slope = cm error per unit removed,
+mean over seeds; paired target-vs-matched test):**
+
+| class ablated | target slope | property-matched | random | target vs matched |
+|---|---|---|---|---|
+| **Predictive** | **0.139** | 0.045 | 0.097 | paired-t p=0.005, **Wilcoxon p=2×10⁻⁶** |
+| **Retrospective** | 0.103 | 0.040 | 0.096 | paired-t p=0.003, Wilcoxon p=5×10⁻⁴ |
+| Zero-lag grid | 0.107 | 0.109 | 0.140 | p=0.92 (**not** selective) |
+
+Predictive *and* retrospective ablation is ~3× more damaging than a control
+matched on all 7 covariates, whereas zero-lag grid cells are indistinguishable
+from their matched controls — a clean selective-importance dissociation. Figure +
+stats: `analysis_outputs/canonical_cohort_v1_pgc_rigor_summary/pgc_matched_ablation_across_seeds.{png,json}`.
+Chance ceiling ~118 cm; baseline ~4.8 cm.
 
 ---
 

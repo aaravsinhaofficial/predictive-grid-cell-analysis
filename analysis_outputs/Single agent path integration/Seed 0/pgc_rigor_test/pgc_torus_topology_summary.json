@@ -1,0 +1,115 @@
+{
+  "checkpoint": "Models/Single agent path integration/Seed 0/most_recent_model.pth",
+  "seed_id": 0,
+  "device": "cuda",
+  "cloud_source": "ratemap",
+  "n_points_cloud": 324,
+  "ambient_dim": 6,
+  "n_pca": 6,
+  "grid": {
+    "n_grid_units": 32,
+    "grid_floor": 0.2,
+    "module_select": "largest",
+    "n_modules": 3,
+    "selected_module": 1,
+    "n_module_units": 17,
+    "module_median_spacing_cm": 88.00000000000001
+  },
+  "betti": {
+    "b1_gap": 1,
+    "b2_gap": 1,
+    "b1_nullcount": 5,
+    "b2_nullcount": 6,
+    "b1_null_per_trial": [
+      5,
+      11
+    ],
+    "b2_null_per_trial": [
+      6,
+      6
+    ],
+    "H1_null_threshold": 0.20390665531158447,
+    "H2_null_threshold": 0.10475730895996094,
+    "H1_top_lifetimes": [
+      0.3862592577934265,
+      0.29448413848876953,
+      0.2898387312889099,
+      0.2455143928527832,
+      0.2381330132484436,
+      0.20279836654663086
+    ],
+    "H2_top_lifetimes": [
+      0.27747273445129395,
+      0.1573420763015747,
+      0.1566331386566162,
+      0.12903296947479248,
+      0.10923874378204346,
+      0.1082109808921814
+    ]
+  },
+  "method_validation_synthetic_torus": {
+    "b1_above_null": 10,
+    "b2_above_null": 1,
+    "b1_gap": 2,
+    "b2_gap": 1,
+    "H1_top_lifetimes": [
+      0.5647106468677521,
+      0.5202549695968628,
+      0.4023919701576233,
+      0.37961336970329285,
+      0.32024630904197693,
+      0.31560179591178894
+    ],
+    "H2_top_lifetimes": [
+      0.16630202531814575,
+      0.060436904430389404,
+      0.05457746982574463,
+      0.045100510120391846,
+      0.040617167949676514,
+      0.038007915019989014
+    ]
+  },
+  "circular_coords_ok": true,
+  "circular_coords_reason": "",
+  "circ_corr": 0.04631869010906461,
+  "pos_R2": 0.05843579301325602,
+  "assumed_basis": {
+    "available": true,
+    "reason": "",
+    "angle_deg": 135.0,
+    "agreement_with_data_driven": {
+      "matrix": [
+        [
+          0.17458877213839463,
+          0.26659881926335943
+        ],
+        [
+          0.4486206765651113,
+          0.5831708990300891
+        ]
+      ],
+      "matched_abs_circ_corr": [
+        0.17458877213839463,
+        0.5831708990300891
+      ],
+      "mean_agreement": 0.3788798355842419
+    }
+  },
+  "torus_consistent": false,
+  "torus_consistent_nullcount": false,
+  "params": {
+    "Ng_use": 64,
+    "n_batches": 4,
+    "res": 20,
+    "collection_seed": 1234,
+    "grid_floor": 0.2,
+    "module_select": "largest",
+    "n_pca": 6,
+    "drop_border": true,
+    "coeff": 47,
+    "n_null": 1,
+    "n_trials": 2,
+    "n_sub": 120,
+    "l2_normalize": true
+  }
+}

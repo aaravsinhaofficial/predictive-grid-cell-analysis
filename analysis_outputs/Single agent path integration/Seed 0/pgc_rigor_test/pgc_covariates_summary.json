@@ -1,0 +1,9 @@
+{
+  "checkpoint": "Models/Single agent path integration/Seed 0/most_recent_model.pth",
+  "seed_id": 0,
+  "Ng": 256,
+  "collection_seed": 4321,
+  "n_grid_units": 119,
+  "n_modules": 3,
+  "median_spacing_cm": 88.00000000000001
+}

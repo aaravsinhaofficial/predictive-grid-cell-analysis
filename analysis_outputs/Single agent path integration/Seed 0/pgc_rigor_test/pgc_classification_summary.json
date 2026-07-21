@@ -1,0 +1,38 @@
+{
+  "checkpoint": "Models/Single agent path integration/Seed 0/most_recent_model.pth",
+  "seed_id": 0,
+  "Ng_evaluated": 256,
+  "cm_per_step": 1.98,
+  "window_cm": 49.49812293052673,
+  "config": {
+    "shift_mode": "time",
+    "max_lag": 25,
+    "lag_step": 1,
+    "max_shift_cm": 50.0,
+    "shift_step_cm": 2.0,
+    "space_projection": "path",
+    "min_shift_cm": 5.0,
+    "gridness_floor": 0.1,
+    "alpha": 0.05,
+    "n_shuffles": 50,
+    "null_block": false,
+    "res": 20,
+    "n_batches": 12,
+    "Ng_use": 256,
+    "classify_seed": 1234,
+    "confirm_seed": 9876,
+    "heldout_confirm": true,
+    "n_workers": 24
+  },
+  "counts": {
+    "non_grid": 173,
+    "normal": 45,
+    "predictive": 31,
+    "retrospective": 7
+  },
+  "n_candidates_null_tested": 149,
+  "n_edge_excluded": 13,
+  "median_predictive_shift_cm": 17.819324254989624,
+  "median_retrospective_shift_cm": -21.779174089431763,
+  "runtime_s": 285.4
+}

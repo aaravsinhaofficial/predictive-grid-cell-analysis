@@ -148,6 +148,10 @@ parser.add_argument('--device',
                     default='cuda' if torch.cuda.is_available() else 'cpu',
                     type=str,
                     help='device to use for training')
+parser.add_argument('--seed',
+                    default=None,
+                    type=int,
+                    help='random seed for reproducible init + trajectories (None = nondeterministic)')
 
 # Optional: path to a specific checkpoint to load (.pth)
 parser.add_argument('--resume_from',
@@ -216,9 +220,23 @@ parser.add_argument('--save_ratemaps_interval',
 options = parser.parse_args()
 options.run_ID = generate_run_ID(options)
 
+# Reproducibility: seed all RNGs before any weight init or trajectory sampling.
+if options.seed is not None:
+    import random as _random
+    _random.seed(options.seed)
+    np.random.seed(options.seed)
+    torch.manual_seed(options.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(options.seed)
+    print(f'Seeded all RNGs with seed={options.seed}')
+
 print(f'Using device: {options.device}')
 
 place_cells = PlaceCells(options)
+# PlaceCells fixes the place-field layout via np.random.seed(0); re-seed here so
+# training trajectories vary by --seed while the place-cell targets stay constant.
+if options.seed is not None:
+    np.random.seed(options.seed)
 if options.RNN_type == 'RNN':
     model = FullRankRNN(options, place_cells)
 elif options.RNN_type == 'low_rank':

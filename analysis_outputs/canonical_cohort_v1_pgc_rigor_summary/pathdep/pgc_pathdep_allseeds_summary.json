@@ -1,0 +1,1078 @@
+{
+  "seed_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "n_seeds": 30,
+  "cross_seed_slope": {
+    "predictive": {
+      "mean": 0.034580158970176085,
+      "sem": 0.0025769384186864856,
+      "n_seeds_finite": 30,
+      "per_seed": [
+        0.05907739229923229,
+        0.026059393425934205,
+        0.024526165724169924,
+        0.019112566771448007,
+        0.03683851746136131,
+        0.059137480071865416,
+        0.039612491956209826,
+        0.023770580148140957,
+        0.07248567785335845,
+        0.040213287655554444,
+        0.025205116659411646,
+        0.026765587810451415,
+        0.049674926764352055,
+        0.021459177487154445,
+        0.047683487704608334,
+        0.033952936313026386,
+        0.03774876137277649,
+        0.022468181536194842,
+        0.05228863349451891,
+        0.021274881329791447,
+        0.01652877777872987,
+        0.04453360817345545,
+        0.022108193333865243,
+        0.043784397596325124,
+        0.020906641843392002,
+        0.025810029529173183,
+        0.028353611978068998,
+        0.039422073863242584,
+        0.020992549219012203,
+        0.03560964195045706
+      ]
+    },
+    "control": {
+      "mean": 0.02464980610283153,
+      "sem": 0.0025793020047843824,
+      "n_seeds_finite": 30,
+      "per_seed": [
+        0.01555850867987847,
+        0.027695424804542436,
+        0.01580549195864455,
+        0.026368266178278706,
+        0.03087863184760056,
+        0.021977115343127664,
+        0.016337903537098988,
+        0.02828975577457394,
+        0.025756436957617878,
+        0.029810471957651585,
+        0.013703773547537256,
+        0.027213854083226723,
+        0.02601451080666797,
+        0.01629706578380509,
+        0.023926719175342153,
+        0.02030120814592642,
+        0.007220574606830492,
+        0.016998160228956605,
+        0.020769041574938654,
+        0.020772988796342207,
+        0.03292664986310864,
+        0.010919828920957013,
+        0.01646843781760319,
+        0.017466375661952672,
+        0.09015311124484408,
+        0.0206190320688274,
+        0.024590208393563892,
+        0.03538037063615497,
+        0.03048766829790252,
+        0.028786596391443386
+      ]
+    },
+    "retrospective": {
+      "mean": 0.03413390984873514,
+      "sem": 0.0020755115557663786,
+      "n_seeds_finite": 30,
+      "per_seed": [
+        0.03586995167520581,
+        0.03594486223272406,
+        0.06285178874940889,
+        0.03398764747742872,
+        0.03055496494700361,
+        0.05219873797801565,
+        0.01660349638838411,
+        0.02726674872838236,
+        0.018380571599265764,
+        0.042981700590982365,
+        0.056748118346590486,
+        0.0212343091947404,
+        0.020373073616040776,
+        0.031712953815726405,
+        0.02334969081543292,
+        0.042571508020743325,
+        0.02348138754118487,
+        0.04559757231767234,
+        0.03673526254443518,
+        0.029022248314890718,
+        0.02414038549331877,
+        0.0399244613852519,
+        0.038676867331651474,
+        0.02821943513785816,
+        0.03655585224587142,
+        0.046613198917122727,
+        0.04107628673750672,
+        0.028412259867109074,
+        0.024322727680618064,
+        0.02860922577148737
+      ]
+    },
+    "random_matched": {
+      "mean": 0.03038037642621252,
+      "sem": 0.0013398624932983215,
+      "n_seeds_finite": 30,
+      "per_seed": [
+        0.030660756527455108,
+        0.03142233571184054,
+        0.03543756377189159,
+        0.03856979143127158,
+        0.033056399293790596,
+        0.033604652639915904,
+        0.029260755975615126,
+        0.01994619064034945,
+        0.02581326177688114,
+        0.025482580789945197,
+        0.021494696776333613,
+        0.03958249436765602,
+        0.030971869696828934,
+        0.030888294084400577,
+        0.032323477628998475,
+        0.02224748954166945,
+        0.023870551974484292,
+        0.025728240538790415,
+        0.03428749657102502,
+        0.020060359345281133,
+        0.027929186530595704,
+        0.022332781578034092,
+        0.047049919985760476,
+        0.04942653087413755,
+        0.02315061174749937,
+        0.03703153659353148,
+        0.02851481988364035,
+        0.0317249055874572,
+        0.024219958008319133,
+        0.03532178291297625
+      ]
+    }
+  },
+  "paired_predictive_vs_control": {
+    "n_seeds": 30,
+    "mean_diff_pred_minus_control": 0.00993035286734455,
+    "t_stat": 2.4866046642485324,
+    "p_ttest": 0.018900691520103027,
+    "w_stat": 87.0,
+    "p_wilcoxon": 0.0020201820880174637
+  },
+  "config": {
+    "Ng_use": 256,
+    "n_batches": 12,
+    "horizon": 5,
+    "bin_res": 20,
+    "pairs_per_bin": 40,
+    "max_pairs": 200000,
+    "n_heading_bins": 9,
+    "min_disp_cm": 3.0,
+    "n_random_draws": 5,
+    "collection_seed": 1234,
+    "metric_seed": 20240
+  },
+  "per_seed": [
+    {
+      "seed_id": 0,
+      "checkpoint": "Models/canonical_cohort_v1/seed_0/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15915,
+      "class_counts": {
+        "predictive": 32,
+        "control": 51,
+        "retrospective": 9,
+        "grid_all": 92
+      },
+      "slopes": {
+        "predictive": 0.05907739229923229,
+        "control": 0.01555850867987847,
+        "retrospective": 0.03586995167520581,
+        "random_matched": 0.030660756527455108
+      },
+      "slopes_allpairs": {
+        "predictive": 0.05871874945145157,
+        "control": 0.016219757179450428,
+        "retrospective": 0.03585623648013072,
+        "random_matched": 0.0403695062025969
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2547113891761325,
+        "control": 0.15995707131642117,
+        "retrospective": 0.22070647952086303,
+        "random_matched": 0.22549299110509546
+      }
+    },
+    {
+      "seed_id": 1,
+      "checkpoint": "Models/canonical_cohort_v1/seed_1/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15924,
+      "class_counts": {
+        "predictive": 22,
+        "control": 39,
+        "retrospective": 13,
+        "grid_all": 74
+      },
+      "slopes": {
+        "predictive": 0.026059393425934205,
+        "control": 0.027695424804542436,
+        "retrospective": 0.03594486223272406,
+        "random_matched": 0.03142233571184054
+      },
+      "slopes_allpairs": {
+        "predictive": 0.025860539314491407,
+        "control": 0.02768295080741655,
+        "retrospective": 0.035931426537143346,
+        "random_matched": 0.028947650690971386
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.21427746491929187,
+        "control": 0.1936876919427539,
+        "retrospective": 0.24553608797485452,
+        "random_matched": 0.2399349709142049
+      }
+    },
+    {
+      "seed_id": 2,
+      "checkpoint": "Models/canonical_cohort_v1/seed_2/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15913,
+      "class_counts": {
+        "predictive": 30,
+        "control": 49,
+        "retrospective": 16,
+        "grid_all": 95
+      },
+      "slopes": {
+        "predictive": 0.024526165724169924,
+        "control": 0.01580549195864455,
+        "retrospective": 0.06285178874940889,
+        "random_matched": 0.03543756377189159
+      },
+      "slopes_allpairs": {
+        "predictive": 0.024674822863683468,
+        "control": 0.01628922487200173,
+        "retrospective": 0.06272035272900064,
+        "random_matched": 0.03333624346193881
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.19984146558074564,
+        "control": 0.16424003772460327,
+        "retrospective": 0.29880399484945547,
+        "random_matched": 0.21575262530067366
+      }
+    },
+    {
+      "seed_id": 3,
+      "checkpoint": "Models/canonical_cohort_v1/seed_3/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15925,
+      "class_counts": {
+        "predictive": 20,
+        "control": 42,
+        "retrospective": 17,
+        "grid_all": 79
+      },
+      "slopes": {
+        "predictive": 0.019112566771448007,
+        "control": 0.026368266178278706,
+        "retrospective": 0.03398764747742872,
+        "random_matched": 0.03856979143127158
+      },
+      "slopes_allpairs": {
+        "predictive": 0.019472820086923814,
+        "control": 0.026894536273369168,
+        "retrospective": 0.0344830806003306,
+        "random_matched": 0.05398736833604749
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.19404936603738115,
+        "control": 0.1938365460850711,
+        "retrospective": 0.18975868215277883,
+        "random_matched": 0.20365797698833946
+      }
+    },
+    {
+      "seed_id": 4,
+      "checkpoint": "Models/canonical_cohort_v1/seed_4/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15915,
+      "class_counts": {
+        "predictive": 19,
+        "control": 39,
+        "retrospective": 21,
+        "grid_all": 79
+      },
+      "slopes": {
+        "predictive": 0.03683851746136131,
+        "control": 0.03087863184760056,
+        "retrospective": 0.03055496494700361,
+        "random_matched": 0.033056399293790596
+      },
+      "slopes_allpairs": {
+        "predictive": 0.03741563622631208,
+        "control": 0.030723574098080506,
+        "retrospective": 0.03096558486322284,
+        "random_matched": 0.04393346465499958
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2019575588124802,
+        "control": 0.18107100296348153,
+        "retrospective": 0.23720751209438468,
+        "random_matched": 0.21928997972158612
+      }
+    },
+    {
+      "seed_id": 5,
+      "checkpoint": "Models/canonical_cohort_v1/seed_5/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15923,
+      "class_counts": {
+        "predictive": 18,
+        "control": 39,
+        "retrospective": 14,
+        "grid_all": 71
+      },
+      "slopes": {
+        "predictive": 0.059137480071865416,
+        "control": 0.021977115343127664,
+        "retrospective": 0.05219873797801565,
+        "random_matched": 0.033604652639915904
+      },
+      "slopes_allpairs": {
+        "predictive": 0.05923065126006737,
+        "control": 0.022133186022879104,
+        "retrospective": 0.05184260691880381,
+        "random_matched": 0.0373004017533578
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2708200769343065,
+        "control": 0.16042153520977837,
+        "retrospective": 0.2296541318913786,
+        "random_matched": 0.21837197465726954
+      }
+    },
+    {
+      "seed_id": 6,
+      "checkpoint": "Models/canonical_cohort_v1/seed_6/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15918,
+      "class_counts": {
+        "predictive": 30,
+        "control": 28,
+        "retrospective": 28,
+        "grid_all": 86
+      },
+      "slopes": {
+        "predictive": 0.039612491956209826,
+        "control": 0.016337903537098988,
+        "retrospective": 0.01660349638838411,
+        "random_matched": 0.029260755975615126
+      },
+      "slopes_allpairs": {
+        "predictive": 0.039639109728675036,
+        "control": 0.01672404500722587,
+        "retrospective": 0.016840486355778245,
+        "random_matched": 0.026713227255761453
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.21665938607168636,
+        "control": 0.2023093035790979,
+        "retrospective": 0.164535691853894,
+        "random_matched": 0.22395310458276374
+      }
+    },
+    {
+      "seed_id": 7,
+      "checkpoint": "Models/canonical_cohort_v1/seed_7/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15918,
+      "class_counts": {
+        "predictive": 25,
+        "control": 35,
+        "retrospective": 12,
+        "grid_all": 72
+      },
+      "slopes": {
+        "predictive": 0.023770580148140957,
+        "control": 0.02828975577457394,
+        "retrospective": 0.02726674872838236,
+        "random_matched": 0.01994619064034945
+      },
+      "slopes_allpairs": {
+        "predictive": 0.02412321182297444,
+        "control": 0.028776181906010428,
+        "retrospective": 0.02807170080522243,
+        "random_matched": 0.024059420325904687
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2146200310343158,
+        "control": 0.24715824480144913,
+        "retrospective": 0.25232968009291495,
+        "random_matched": 0.22083305859979546
+      }
+    },
+    {
+      "seed_id": 8,
+      "checkpoint": "Models/canonical_cohort_v1/seed_8/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15919,
+      "class_counts": {
+        "predictive": 21,
+        "control": 51,
+        "retrospective": 17,
+        "grid_all": 89
+      },
+      "slopes": {
+        "predictive": 0.07248567785335845,
+        "control": 0.025756436957617878,
+        "retrospective": 0.018380571599265764,
+        "random_matched": 0.02581326177688114
+      },
+      "slopes_allpairs": {
+        "predictive": 0.07185751533569268,
+        "control": 0.02598075886836157,
+        "retrospective": 0.018973201745470503,
+        "random_matched": 0.03217481363976625
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.29942000677672487,
+        "control": 0.199259719079995,
+        "retrospective": 0.13946402347507364,
+        "random_matched": 0.2121709743826588
+      }
+    },
+    {
+      "seed_id": 9,
+      "checkpoint": "Models/canonical_cohort_v1/seed_9/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15914,
+      "class_counts": {
+        "predictive": 33,
+        "control": 43,
+        "retrospective": 10,
+        "grid_all": 86
+      },
+      "slopes": {
+        "predictive": 0.040213287655554444,
+        "control": 0.029810471957651585,
+        "retrospective": 0.042981700590982365,
+        "random_matched": 0.025482580789945197
+      },
+      "slopes_allpairs": {
+        "predictive": 0.04066879627643724,
+        "control": 0.030354187095932662,
+        "retrospective": 0.04341929107852583,
+        "random_matched": 0.03616687921412579
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.24724403680189955,
+        "control": 0.20684968039359497,
+        "retrospective": 0.23406790710784045,
+        "random_matched": 0.18855859009548875
+      }
+    },
+    {
+      "seed_id": 10,
+      "checkpoint": "Models/canonical_cohort_v1/seed_10/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15928,
+      "class_counts": {
+        "predictive": 25,
+        "control": 44,
+        "retrospective": 17,
+        "grid_all": 86
+      },
+      "slopes": {
+        "predictive": 0.025205116659411646,
+        "control": 0.013703773547537256,
+        "retrospective": 0.056748118346590486,
+        "random_matched": 0.021494696776333613
+      },
+      "slopes_allpairs": {
+        "predictive": 0.02600502126348195,
+        "control": 0.014419435770854933,
+        "retrospective": 0.05675013427886204,
+        "random_matched": 0.03134947137778896
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.20117869345538353,
+        "control": 0.1682753133098525,
+        "retrospective": 0.26840277328791906,
+        "random_matched": 0.20723114716615215
+      }
+    },
+    {
+      "seed_id": 11,
+      "checkpoint": "Models/canonical_cohort_v1/seed_11/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15904,
+      "class_counts": {
+        "predictive": 16,
+        "control": 49,
+        "retrospective": 12,
+        "grid_all": 77
+      },
+      "slopes": {
+        "predictive": 0.026765587810451415,
+        "control": 0.027213854083226723,
+        "retrospective": 0.0212343091947404,
+        "random_matched": 0.03958249436765602
+      },
+      "slopes_allpairs": {
+        "predictive": 0.027643457125780604,
+        "control": 0.027463244503495254,
+        "retrospective": 0.021046810085729308,
+        "random_matched": 0.03284639918160316
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.21573381945025846,
+        "control": 0.1681680718983843,
+        "retrospective": 0.15620796015731828,
+        "random_matched": 0.23129422332745403
+      }
+    },
+    {
+      "seed_id": 12,
+      "checkpoint": "Models/canonical_cohort_v1/seed_12/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15924,
+      "class_counts": {
+        "predictive": 20,
+        "control": 55,
+        "retrospective": 15,
+        "grid_all": 90
+      },
+      "slopes": {
+        "predictive": 0.049674926764352055,
+        "control": 0.02601451080666797,
+        "retrospective": 0.020373073616040776,
+        "random_matched": 0.030971869696828934
+      },
+      "slopes_allpairs": {
+        "predictive": 0.04923113971329624,
+        "control": 0.026014103101295972,
+        "retrospective": 0.020474003245763255,
+        "random_matched": 0.02893977341585254
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2523594640148506,
+        "control": 0.19707500197679323,
+        "retrospective": 0.18329454762347241,
+        "random_matched": 0.2180011528209453
+      }
+    },
+    {
+      "seed_id": 13,
+      "checkpoint": "Models/canonical_cohort_v1/seed_13/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15912,
+      "class_counts": {
+        "predictive": 33,
+        "control": 49,
+        "retrospective": 7,
+        "grid_all": 89
+      },
+      "slopes": {
+        "predictive": 0.021459177487154445,
+        "control": 0.01629706578380509,
+        "retrospective": 0.031712953815726405,
+        "random_matched": 0.030888294084400577
+      },
+      "slopes_allpairs": {
+        "predictive": 0.021440024269189572,
+        "control": 0.016289798015980603,
+        "retrospective": 0.03163434365460986,
+        "random_matched": 0.024733982877725814
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.18306632648411678,
+        "control": 0.15102355177128007,
+        "retrospective": 0.29070121495567885,
+        "random_matched": 0.22631807850387903
+      }
+    },
+    {
+      "seed_id": 14,
+      "checkpoint": "Models/canonical_cohort_v1/seed_14/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15920,
+      "class_counts": {
+        "predictive": 23,
+        "control": 45,
+        "retrospective": 19,
+        "grid_all": 87
+      },
+      "slopes": {
+        "predictive": 0.047683487704608334,
+        "control": 0.023926719175342153,
+        "retrospective": 0.02334969081543292,
+        "random_matched": 0.032323477628998475
+      },
+      "slopes_allpairs": {
+        "predictive": 0.0478314810123561,
+        "control": 0.02429143004516791,
+        "retrospective": 0.023663339615354658,
+        "random_matched": 0.0285660508479114
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2699006474968557,
+        "control": 0.19564391742314563,
+        "retrospective": 0.173439029501901,
+        "random_matched": 0.22375547715012972
+      }
+    },
+    {
+      "seed_id": 15,
+      "checkpoint": "Models/canonical_cohort_v1/seed_15/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15928,
+      "class_counts": {
+        "predictive": 23,
+        "control": 37,
+        "retrospective": 16,
+        "grid_all": 76
+      },
+      "slopes": {
+        "predictive": 0.033952936313026386,
+        "control": 0.02030120814592642,
+        "retrospective": 0.042571508020743325,
+        "random_matched": 0.02224748954166945
+      },
+      "slopes_allpairs": {
+        "predictive": 0.03447487370390654,
+        "control": 0.020713296146918567,
+        "retrospective": 0.04250401600100243,
+        "random_matched": 0.03318361639200947
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.22066342994852967,
+        "control": 0.15820009921247674,
+        "retrospective": 0.23876604341974103,
+        "random_matched": 0.18797581178068348
+      }
+    },
+    {
+      "seed_id": 16,
+      "checkpoint": "Models/canonical_cohort_v1/seed_16/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15925,
+      "class_counts": {
+        "predictive": 25,
+        "control": 41,
+        "retrospective": 16,
+        "grid_all": 82
+      },
+      "slopes": {
+        "predictive": 0.03774876137277649,
+        "control": 0.007220574606830492,
+        "retrospective": 0.02348138754118487,
+        "random_matched": 0.023870551974484292
+      },
+      "slopes_allpairs": {
+        "predictive": 0.0377109135035954,
+        "control": 0.007610496416871914,
+        "retrospective": 0.02329135378201947,
+        "random_matched": 0.03311821704568258
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.21436043821408038,
+        "control": 0.13422829731187383,
+        "retrospective": 0.23230857331856522,
+        "random_matched": 0.22707929588896347
+      }
+    },
+    {
+      "seed_id": 17,
+      "checkpoint": "Models/canonical_cohort_v1/seed_17/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15933,
+      "class_counts": {
+        "predictive": 26,
+        "control": 40,
+        "retrospective": 7,
+        "grid_all": 73
+      },
+      "slopes": {
+        "predictive": 0.022468181536194842,
+        "control": 0.016998160228956605,
+        "retrospective": 0.04559757231767234,
+        "random_matched": 0.025728240538790415
+      },
+      "slopes_allpairs": {
+        "predictive": 0.022540140345979932,
+        "control": 0.017440521655202306,
+        "retrospective": 0.04509789719806468,
+        "random_matched": 0.03345319696645937
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.16680905746467087,
+        "control": 0.2121587030651195,
+        "retrospective": 0.2029729339043407,
+        "random_matched": 0.21394360941253684
+      }
+    },
+    {
+      "seed_id": 18,
+      "checkpoint": "Models/canonical_cohort_v1/seed_18/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15929,
+      "class_counts": {
+        "predictive": 37,
+        "control": 33,
+        "retrospective": 10,
+        "grid_all": 80
+      },
+      "slopes": {
+        "predictive": 0.05228863349451891,
+        "control": 0.020769041574938654,
+        "retrospective": 0.03673526254443518,
+        "random_matched": 0.03428749657102502
+      },
+      "slopes_allpairs": {
+        "predictive": 0.05235008383670885,
+        "control": 0.021306621473084313,
+        "retrospective": 0.03700124796127282,
+        "random_matched": 0.03373789317355717
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.24596390877149912,
+        "control": 0.20339266929497055,
+        "retrospective": 0.23112236181807266,
+        "random_matched": 0.21231586573086025
+      }
+    },
+    {
+      "seed_id": 19,
+      "checkpoint": "Models/canonical_cohort_v1/seed_19/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15910,
+      "class_counts": {
+        "predictive": 28,
+        "control": 37,
+        "retrospective": 13,
+        "grid_all": 78
+      },
+      "slopes": {
+        "predictive": 0.021274881329791447,
+        "control": 0.020772988796342207,
+        "retrospective": 0.029022248314890718,
+        "random_matched": 0.020060359345281133
+      },
+      "slopes_allpairs": {
+        "predictive": 0.021593227900047737,
+        "control": 0.021118399310845165,
+        "retrospective": 0.029538888553460173,
+        "random_matched": 0.03534204687839041
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.14183195469078222,
+        "control": 0.2090120701496479,
+        "retrospective": 0.23703354105764332,
+        "random_matched": 0.16088704721284924
+      }
+    },
+    {
+      "seed_id": 20,
+      "checkpoint": "Models/canonical_cohort_v1/seed_20/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15913,
+      "class_counts": {
+        "predictive": 18,
+        "control": 33,
+        "retrospective": 14,
+        "grid_all": 65
+      },
+      "slopes": {
+        "predictive": 0.01652877777872987,
+        "control": 0.03292664986310864,
+        "retrospective": 0.02414038549331877,
+        "random_matched": 0.027929186530595704
+      },
+      "slopes_allpairs": {
+        "predictive": 0.01744679832066788,
+        "control": 0.033215483187931445,
+        "retrospective": 0.024891255436593953,
+        "random_matched": 0.028179621298566014
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.16234846978927414,
+        "control": 0.22971102891863768,
+        "retrospective": 0.19021848102953184,
+        "random_matched": 0.22740180340461638
+      }
+    },
+    {
+      "seed_id": 21,
+      "checkpoint": "Models/canonical_cohort_v1/seed_21/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15901,
+      "class_counts": {
+        "predictive": 29,
+        "control": 40,
+        "retrospective": 14,
+        "grid_all": 83
+      },
+      "slopes": {
+        "predictive": 0.04453360817345545,
+        "control": 0.010919828920957013,
+        "retrospective": 0.0399244613852519,
+        "random_matched": 0.022332781578034092
+      },
+      "slopes_allpairs": {
+        "predictive": 0.045155713458787675,
+        "control": 0.011712850350587126,
+        "retrospective": 0.040119337562657356,
+        "random_matched": 0.022584917478233914
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2566776912572584,
+        "control": 0.189695039927352,
+        "retrospective": 0.27863767738728645,
+        "random_matched": 0.2198138855362587
+      }
+    },
+    {
+      "seed_id": 22,
+      "checkpoint": "Models/canonical_cohort_v1/seed_22/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15908,
+      "class_counts": {
+        "predictive": 26,
+        "control": 48,
+        "retrospective": 13,
+        "grid_all": 87
+      },
+      "slopes": {
+        "predictive": 0.022108193333865243,
+        "control": 0.01646843781760319,
+        "retrospective": 0.038676867331651474,
+        "random_matched": 0.047049919985760476
+      },
+      "slopes_allpairs": {
+        "predictive": 0.02222981372156954,
+        "control": 0.016374885709344908,
+        "retrospective": 0.03822886043104756,
+        "random_matched": 0.025898499503420946
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.1591423074904064,
+        "control": 0.1667977263708766,
+        "retrospective": 0.23688400607896914,
+        "random_matched": 0.23529026685837526
+      }
+    },
+    {
+      "seed_id": 23,
+      "checkpoint": "Models/canonical_cohort_v1/seed_23/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15920,
+      "class_counts": {
+        "predictive": 27,
+        "control": 31,
+        "retrospective": 15,
+        "grid_all": 73
+      },
+      "slopes": {
+        "predictive": 0.043784397596325124,
+        "control": 0.017466375661952672,
+        "retrospective": 0.02821943513785816,
+        "random_matched": 0.04942653087413755
+      },
+      "slopes_allpairs": {
+        "predictive": 0.04367693624308331,
+        "control": 0.017864258831347443,
+        "retrospective": 0.02880268809784011,
+        "random_matched": 0.030813930850626912
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.2407728379837908,
+        "control": 0.1522645643257018,
+        "retrospective": 0.24262566178069653,
+        "random_matched": 0.2556340345883732
+      }
+    },
+    {
+      "seed_id": 24,
+      "checkpoint": "Models/canonical_cohort_v1/seed_24/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15919,
+      "class_counts": {
+        "predictive": 22,
+        "control": 34,
+        "retrospective": 12,
+        "grid_all": 68
+      },
+      "slopes": {
+        "predictive": 0.020906641843392002,
+        "control": 0.09015311124484408,
+        "retrospective": 0.03655585224587142,
+        "random_matched": 0.02315061174749937
+      },
+      "slopes_allpairs": {
+        "predictive": 0.02132404978275916,
+        "control": 0.0901173945396743,
+        "retrospective": 0.03743851192857464,
+        "random_matched": 0.02589764957747595
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.16124476963864853,
+        "control": 0.29287901052500925,
+        "retrospective": 0.2384365373881345,
+        "random_matched": 0.19862957562330952
+      }
+    },
+    {
+      "seed_id": 25,
+      "checkpoint": "Models/canonical_cohort_v1/seed_25/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15912,
+      "class_counts": {
+        "predictive": 25,
+        "control": 41,
+        "retrospective": 10,
+        "grid_all": 76
+      },
+      "slopes": {
+        "predictive": 0.025810029529173183,
+        "control": 0.0206190320688274,
+        "retrospective": 0.046613198917122727,
+        "random_matched": 0.03703153659353148
+      },
+      "slopes_allpairs": {
+        "predictive": 0.025959067441156104,
+        "control": 0.02093166447143986,
+        "retrospective": 0.047019451480684725,
+        "random_matched": 0.03301220321038967
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.23658726194782176,
+        "control": 0.18085553612498592,
+        "retrospective": 0.2502591037542717,
+        "random_matched": 0.22354140245184492
+      }
+    },
+    {
+      "seed_id": 26,
+      "checkpoint": "Models/canonical_cohort_v1/seed_26/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15926,
+      "class_counts": {
+        "predictive": 23,
+        "control": 34,
+        "retrospective": 19,
+        "grid_all": 76
+      },
+      "slopes": {
+        "predictive": 0.028353611978068998,
+        "control": 0.024590208393563892,
+        "retrospective": 0.04107628673750672,
+        "random_matched": 0.02851481988364035
+      },
+      "slopes_allpairs": {
+        "predictive": 0.028307927175166708,
+        "control": 0.02463613281115803,
+        "retrospective": 0.041325514278772825,
+        "random_matched": 0.02646039915783338
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.1885292282376656,
+        "control": 0.1827333543794489,
+        "retrospective": 0.21109362417803051,
+        "random_matched": 0.22783360484431592
+      }
+    },
+    {
+      "seed_id": 27,
+      "checkpoint": "Models/canonical_cohort_v1/seed_27/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15924,
+      "class_counts": {
+        "predictive": 19,
+        "control": 48,
+        "retrospective": 12,
+        "grid_all": 79
+      },
+      "slopes": {
+        "predictive": 0.039422073863242584,
+        "control": 0.03538037063615497,
+        "retrospective": 0.028412259867109074,
+        "random_matched": 0.0317249055874572
+      },
+      "slopes_allpairs": {
+        "predictive": 0.03964015619535621,
+        "control": 0.035562586406887066,
+        "retrospective": 0.028932730955913737,
+        "random_matched": 0.03757108462251403
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.23163102058740948,
+        "control": 0.20092542972387303,
+        "retrospective": 0.23091763883918223,
+        "random_matched": 0.22772847061040258
+      }
+    },
+    {
+      "seed_id": 28,
+      "checkpoint": "Models/canonical_cohort_v1/seed_28/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15929,
+      "class_counts": {
+        "predictive": 27,
+        "control": 43,
+        "retrospective": 11,
+        "grid_all": 81
+      },
+      "slopes": {
+        "predictive": 0.020992549219012203,
+        "control": 0.03048766829790252,
+        "retrospective": 0.024322727680618064,
+        "random_matched": 0.024219958008319133
+      },
+      "slopes_allpairs": {
+        "predictive": 0.02164429071958753,
+        "control": 0.031009845181086456,
+        "retrospective": 0.025249679538668583,
+        "random_matched": 0.046437583919684465
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.1803748201407521,
+        "control": 0.2048358790694835,
+        "retrospective": 0.2107723832440083,
+        "random_matched": 0.20104021760870663
+      }
+    },
+    {
+      "seed_id": 29,
+      "checkpoint": "Models/canonical_cohort_v1/seed_29/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "n_pairs": 15915,
+      "class_counts": {
+        "predictive": 17,
+        "control": 42,
+        "retrospective": 15,
+        "grid_all": 74
+      },
+      "slopes": {
+        "predictive": 0.03560964195045706,
+        "control": 0.028786596391443386,
+        "retrospective": 0.02860922577148737,
+        "random_matched": 0.03532178291297625
+      },
+      "slopes_allpairs": {
+        "predictive": 0.036066035242182416,
+        "control": 0.029005106178378773,
+        "retrospective": 0.029001712371978985,
+        "random_matched": 0.05395825145239808
+      },
+      "mean_divergence_overall": {
+        "predictive": 0.21755534513521735,
+        "control": 0.177310006870253,
+        "retrospective": 0.19642726217932652,
+        "random_matched": 0.2335967853015979
+      }
+    }
+  ]
+}

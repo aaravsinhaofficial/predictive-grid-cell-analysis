@@ -1,19 +1,15 @@
 {
   "schema": "pgc_freeze/1",
-  "timestamp": "2026-07-21T20:00:00Z",
+  "timestamp": "2026-07-21T22:40:00Z",
   "timestamp_source": "supplied",
   "repo_root": "/home/ec2-user/predictive-grid-cell-analysis",
   "git": {
     "available": true,
-    "commit": "80453740f152865b98cd314b68495f23292e53d7",
-    "branch": "main",
+    "commit": "dc553a2d1bc3aebc88a25d6aca0b1f816f6e5862",
+    "branch": "pgc-rigor-upgrade",
     "dirty": true,
-    "n_changed": 56,
+    "n_changed": 38,
     "changed_files": [
-      {
-        "status": "M",
-        "path": "code/main.py"
-      },
       {
         "status": "??",
         "path": "\"Seed 0(trained advanced)/analysis_outputs/torus/\""
@@ -41,10 +37,6 @@
       {
         "status": "??",
         "path": "\"analysis_outputs/Single agent path integration/Seed 0 weight decay 1e-06/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/torus/\""
-      },
-      {
-        "status": "??",
-        "path": "\"analysis_outputs/Single agent path integration/Seed 0/pgc_rigor_test/\""
       },
       {
         "status": "??",
@@ -156,51 +148,11 @@
       },
       {
         "status": "??",
-        "path": "analysis_outputs/canonical_cohort_v1/"
+        "path": "analysis_outputs/pgc_rigor_summary/"
       },
       {
         "status": "??",
         "path": "code/generate_fig1b_torus.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_aggregate_seeds.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_classifier.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_common.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_covariates.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_fastscore.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_freeze.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_intervention.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_matched_ablation.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_pathdep_allseeds.py"
-      },
-      {
-        "status": "??",
-        "path": "code/pgc_torus_topology.py"
       },
       {
         "status": "??",
@@ -209,30 +161,6 @@
       {
         "status": "??",
         "path": "code/torus_trajectory_variation_metric.py"
-      },
-      {
-        "status": "??",
-        "path": "code/train_cohort_worker.sh"
-      },
-      {
-        "status": "??",
-        "path": "docs/PGC_RIGOR_UPGRADE.md"
-      },
-      {
-        "status": "??",
-        "path": "reproducibility/"
-      },
-      {
-        "status": "??",
-        "path": "run_pgc_classify_cohort.sh"
-      },
-      {
-        "status": "??",
-        "path": "run_pgc_rigor_pipeline.sh"
-      },
-      {
-        "status": "??",
-        "path": "run_train_cohort.sh"
       }
     ]
   },
@@ -452,6 +380,111 @@
       }
     },
     {
+      "path": "Models/canonical_cohort_v1/seed_10/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_10/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_10/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "22f6d11f8bd09a2f1bf6bd05315c366f9c7cad9b6130892bfe57406aafb781b9",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_11/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_11/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_11/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "152da24086bfd342a2e207b122a5b1f1bfe4a08f4043fda8175ecfaa4e885906",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_12/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_12/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_12/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "bb0892ba2c24f70ad0b08695146d10dc49285cf758165f594a4e21e32dbb6334",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_13/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_13/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_13/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "59c229a6cfaba55748e88dfc614a902ecccaf94bfc38e498c47c027c74782c04",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_14/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_14/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_14/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "18e5409d7440c9d6c607655b9b87743e5a176a7f55bd93af8e29b5fd6a075d4c",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
       "path": "Models/canonical_cohort_v1/seed_15/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
       "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_15/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
       "exists": true,
@@ -625,7 +658,154 @@
       "exists": true,
       "relative_to_models": "canonical_cohort_v1/seed_22/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
       "size_bytes": 83954107,
-      "sha256": "3d06a225abb85ed8ba5b8403ba95ce6fdb9e1c311decf095e04e77bbefbcc335",
+      "sha256": "2d4c54c477bcb7096d59a9585c82a833663d468df2ed24ce6a16d8f2ae1b396d",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_23/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_23/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_23/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "ba11a13d82525266f59cb7ab9e189740ef4360325afd18df2d1a563e3895519d",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_24/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_24/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_24/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "e2f1986ae1ca004feb108a3fcb2a4fc34900468944d7410989ed73a04c57384c",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_25/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_25/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_25/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "ee4f8f3d13fd59b18809fa5c05dece2f50381b62c3366e10eb459681007c7f7c",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_26/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_26/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_26/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "6351dc8ec7b0b61c53d5777a7a8d99a08cb1735067ce59c27ab9af9ea3cfd2b5",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_27/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_27/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_27/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "8abcd8cb81ef2bee11765073c7d8f63c3482d8e6fe5617c48edf234f899083de",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_28/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_28/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_28/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "2a4ff808710fdf5bd3a4cb9009c98e83a4e5d37cc49e10bc579f0dafea8e65a2",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_29/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_29/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_29/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "4d8638aeb6d20e649d71fe1b7b17dba36c3cf7508a1c7d1c158fd90a8335abd5",
       "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
       "training_config": {
         "sequence_length": "20",
@@ -730,7 +910,49 @@
       "exists": true,
       "relative_to_models": "canonical_cohort_v1/seed_7/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
       "size_bytes": 83954107,
-      "sha256": "77e35d3ae2448f2f7782c4e0e00e88a8b4b0145561e9e94149b3281a7e27711e",
+      "sha256": "f52893edf487e4a604e9b20afaac5bd6c9ece434a1cf6a1cf0c24c763cee23f9",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_8/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_8/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_8/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "c4f9b476721ab6c806abb3484b37083e2c5652c4f94fa9ccdfcf061d2d6dc9d9",
+      "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
+      "training_config": {
+        "sequence_length": "20",
+        "batch_size": "200",
+        "place_cell_rf": "012",
+        "DoG": "True",
+        "periodic": "False",
+        "learning_rate": "00001",
+        "weight_decay": "1e-06",
+        "activation": "relu",
+        "Ng": "4096",
+        "RNN_type": "RNN"
+      }
+    },
+    {
+      "path": "Models/canonical_cohort_v1/seed_9/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "resolved_path": "/home/ec2-user/predictive-grid-cell-analysis/Models/canonical_cohort_v1/seed_9/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "exists": true,
+      "relative_to_models": "canonical_cohort_v1/seed_9/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+      "size_bytes": 83954107,
+      "sha256": "9917e8cfd76663d38f250b9dfa34894ba6ee634edbcf1ed17978e6bd98004cb1",
       "run_ID": "steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06",
       "training_config": {
         "sequence_length": "20",

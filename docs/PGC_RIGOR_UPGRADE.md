@@ -131,9 +131,23 @@ zero drive) lets activity be injected along the **PGC subspace**:
   error rises; then replay the intact network's predictive-unit drive into the
   ablated rollout and show phase velocity / decoding error partially **recover**.
 
-*Status: implemented (agent-built, verified). This is the flagship, potentially
-Science-Advances-making experiment; effect sizes are reported as measured,
-including partial rescue.*
+*Status: implemented and run across the full 30-seed cohort — the flagship
+result.*
+
+**Cross-seed intervention (30 seeds, mean ± SEM):**
+- Driving the PGC subspace moves toroidal phase predictably: drive→displacement
+  **Pearson r = 0.947 ± 0.011**.
+- Ablating predictive units damages decoding: 4.60 → **7.61 cm** (Wilcoxon
+  ablated > intact **p = 1.9×10⁻⁹**).
+- Replaying the predictive subspace into the ablated network **rescues it**:
+  7.61 → **4.71 cm**, recovering **86.1% ± 5.0%** of the decode-error gap and
+  81% ± 6% of phase velocity (Wilcoxon rescued < ablated **p = 3.7×10⁻⁹**).
+- The manual step-by-step rollout matches `model.g` exactly (float64 error 0.0),
+  so the intervention is a faithful causal manipulation, not an artefact.
+
+Figure: `analysis_outputs/canonical_cohort_v1_pgc_rigor_summary/pgc_intervention_across_seeds.{png,json}`.
+Together with §2 this is the causal chain: PGC-subspace drive **moves** toroidal
+phase, PGC ablation **freezes/breaks** decoding, and PGC replay **rescues** it.
 
 ---
 

@@ -1,0 +1,107 @@
+{
+  "checkpoint": "Models/canonical_cohort_v1/seed_24/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+  "seed_id": 24,
+  "device": "cuda",
+  "Ng": 4096,
+  "n_predictive_units": 22,
+  "predictive_units": [
+    16,
+    21,
+    23,
+    24,
+    27,
+    46,
+    55,
+    58,
+    70,
+    73,
+    81,
+    84,
+    100,
+    122,
+    152,
+    158,
+    176,
+    181,
+    182,
+    194,
+    236,
+    245
+  ],
+  "basis_units_desc": "dominant_grid_module(1)_minus_predictive",
+  "n_basis_units": 93,
+  "projector": "standard",
+  "nat_pred_scale": 0.23164887726306915,
+  "n_batches": 8,
+  "batch_size": 200,
+  "sequence_length": 40,
+  "rollout_match": {
+    "run_max_abs": 0.0009179413318634033,
+    "run_rel": 0.0013766854798613905,
+    "float64_cpu_max_abs": 0.0
+  },
+  "phase_velocity": {
+    "intact": 0.1798925262181458,
+    "ablated": 0.22760225387223695,
+    "rescued": 0.18219338216390754,
+    "rescued_direct": 0.22760225387223695
+  },
+  "decode_error_cm": {
+    "intact": 4.52177293821693,
+    "ablated": 9.757105301221253,
+    "rescued": 4.583798186179643,
+    "rescued_direct": 9.757105301221253
+  },
+  "net_displacement": {
+    "intact": 4.130682030142545,
+    "ablated": 5.107729598890177,
+    "rescued": 4.182745492228884,
+    "rescued_direct": 5.107729598890177
+  },
+  "rescue_effect": {
+    "decode_error_recovered_fraction": 0.9881525672751903,
+    "phase_velocity_recovered_fraction": 0.9517738612460003,
+    "decode_error_ablation_gap_cm": 5.235332363004323,
+    "decode_error_rescue_gain_cm": 5.17330711504161,
+    "phase_velocity_freeze_ratio": 1.265212394628536
+  },
+  "dose_curve": {
+    "alpha_multiples": [
+      0.0,
+      0.8,
+      1.6,
+      2.4000000000000004,
+      3.2,
+      4.0
+    ],
+    "alpha": [
+      0.0,
+      0.18531910181045533,
+      0.37063820362091066,
+      0.555957305431366,
+      0.7412764072418213,
+      0.9265955090522766
+    ],
+    "displacement": [
+      1.1736635700617064,
+      1.3581500082793987,
+      1.5263625495921598,
+      1.658988368602217,
+      1.8044581583393893,
+      1.8420449134085883
+    ],
+    "phase_velocity": [
+      0.03765220665574911,
+      0.044670939355157216,
+      0.05082886813707936,
+      0.054653638952750994,
+      0.05966829221047617,
+      0.06264754901453909
+    ],
+    "pearson_r": 0.986319780378922,
+    "pearson_p": 0.0002794424976537832,
+    "spearman_r": 1.0,
+    "spearman_p": 0.0,
+    "monotonic": true
+  }
+}

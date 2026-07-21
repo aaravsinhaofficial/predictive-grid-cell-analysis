@@ -1,0 +1,118 @@
+{
+  "checkpoint": "Models/canonical_cohort_v1/seed_13/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+  "seed_id": 13,
+  "device": "cuda",
+  "Ng": 4096,
+  "n_predictive_units": 33,
+  "predictive_units": [
+    17,
+    23,
+    32,
+    35,
+    43,
+    52,
+    63,
+    65,
+    78,
+    81,
+    94,
+    108,
+    109,
+    114,
+    120,
+    123,
+    124,
+    126,
+    131,
+    142,
+    154,
+    158,
+    168,
+    176,
+    190,
+    208,
+    214,
+    222,
+    232,
+    235,
+    242,
+    245,
+    252
+  ],
+  "basis_units_desc": "dominant_grid_module(0)_minus_predictive",
+  "n_basis_units": 121,
+  "projector": "standard",
+  "nat_pred_scale": 0.16921411454677582,
+  "n_batches": 8,
+  "batch_size": 200,
+  "sequence_length": 40,
+  "rollout_match": {
+    "run_max_abs": 0.0010181516408920288,
+    "run_rel": 0.0017693847418807042,
+    "float64_cpu_max_abs": 0.0
+  },
+  "phase_velocity": {
+    "intact": 0.2210329884237158,
+    "ablated": 0.2469015428437292,
+    "rescued": 0.22384472594069962,
+    "rescued_direct": 0.2469015428437292
+  },
+  "decode_error_cm": {
+    "intact": 4.580289462386056,
+    "ablated": 7.0241480207019364,
+    "rescued": 4.584638609950564,
+    "rescued_direct": 7.0241480207019364
+  },
+  "net_displacement": {
+    "intact": 4.180493839915333,
+    "ablated": 4.610461859908526,
+    "rescued": 4.212569088112065,
+    "rescued_direct": 4.610461859908526
+  },
+  "rescue_effect": {
+    "decode_error_recovered_fraction": 0.9982203767277331,
+    "phase_velocity_recovered_fraction": 0.8913067397840946,
+    "decode_error_ablation_gap_cm": 2.4438585583158803,
+    "decode_error_rescue_gain_cm": 2.4395094107513726,
+    "phase_velocity_freeze_ratio": 1.1170348127874192
+  },
+  "dose_curve": {
+    "alpha_multiples": [
+      0.0,
+      0.8,
+      1.6,
+      2.4000000000000004,
+      3.2,
+      4.0
+    ],
+    "alpha": [
+      0.0,
+      0.13537129163742065,
+      0.2707425832748413,
+      0.40611387491226203,
+      0.5414851665496826,
+      0.6768564581871033
+    ],
+    "displacement": [
+      1.2593429742406217,
+      1.1804947734595606,
+      1.5158730903627446,
+      1.9299368257134588,
+      2.313880952952696,
+      2.469513093875433
+    ],
+    "phase_velocity": [
+      0.04503953641023238,
+      0.05775665232840296,
+      0.07203879686783582,
+      0.08519500682076112,
+      0.09742571849434123,
+      0.10477927413937521
+    ],
+    "pearson_r": 0.9681788528422177,
+    "pearson_p": 0.001502767295041822,
+    "spearman_r": 0.942857142857143,
+    "spearman_p": 0.004804664723032055,
+    "monotonic": false
+  }
+}

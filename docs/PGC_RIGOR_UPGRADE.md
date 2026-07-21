@@ -44,9 +44,22 @@ shifts piled up at the sweep edge and (b) any unit whose gridness merely cleared
   zero-lag.
 - **One classifier** feeds everything downstream (`pgc_classification.npz`).
 
-*Status: implemented and validated.* Seed 0 (256 units, 50 shuffles): 31
-predictive (median +17.8 cm), 7 retrospective (−21.8 cm), 45 zero-lag grid, 173
-non-grid; edge-excluded and null-rejected units are removed rather than counted.
+*Status: implemented and validated, run across the full 30-seed cohort.*
+
+**Cross-seed result (canonical 30-seed cohort, mean ± SEM over seeds, 256 units,
+40 shuffles, ±50 cm window):**
+
+| class | % of all units | preferred shift |
+|---|---|---|
+| Predictive | **9.62% ± 0.38%** (30.7% ± 1.1% of grid cells) | **+21.2 ± 1.2 cm** |
+| Retrospective | 5.52% ± 0.31% | −23.9 ± 1.3 cm |
+| Zero-lag grid | 16.15% ± 0.48% | ~0 |
+| Grid total | 31.29% ± 0.53% | — |
+
+Predictive grid cells emerge in **every** seed (per-seed range 6.2–14.5%), which
+is the "prevalence across networks" result. Aggregation + figure:
+`analysis_outputs/canonical_cohort_v1_pgc_rigor_summary/`
+(`pgc_prevalence_across_seeds.png`, `pgc_classification_across_seeds.json`).
 
 ---
 

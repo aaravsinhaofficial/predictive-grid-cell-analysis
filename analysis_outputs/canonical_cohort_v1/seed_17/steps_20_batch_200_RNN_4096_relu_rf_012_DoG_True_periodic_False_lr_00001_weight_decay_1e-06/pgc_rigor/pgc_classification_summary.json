@@ -1,0 +1,38 @@
+{
+  "checkpoint": "Models/canonical_cohort_v1/seed_17/steps_20_batch_200_RNN_4096_relu_rf_012_DoG_True_periodic_False_lr_00001_weight_decay_1e-06/most_recent_model.pth",
+  "seed_id": 17,
+  "Ng_evaluated": 256,
+  "cm_per_step": 1.979,
+  "window_cm": 49.47047233581543,
+  "config": {
+    "shift_mode": "time",
+    "max_lag": 25,
+    "lag_step": 1,
+    "max_shift_cm": 50.0,
+    "shift_step_cm": 2.0,
+    "space_projection": "path",
+    "min_shift_cm": 5.0,
+    "gridness_floor": 0.15,
+    "alpha": 0.05,
+    "n_shuffles": 40,
+    "null_block": false,
+    "res": 20,
+    "n_batches": 16,
+    "Ng_use": 256,
+    "classify_seed": 1234,
+    "confirm_seed": 9876,
+    "heldout_confirm": true,
+    "n_workers": 24
+  },
+  "counts": {
+    "non_grid": 183,
+    "normal": 40,
+    "predictive": 26,
+    "retrospective": 7
+  },
+  "n_candidates_null_tested": 214,
+  "n_edge_excluded": 26,
+  "median_predictive_shift_cm": 18.798779487609863,
+  "median_retrospective_shift_cm": -19.788188934326172,
+  "runtime_s": 325.3
+}

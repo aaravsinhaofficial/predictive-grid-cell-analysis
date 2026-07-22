@@ -6,10 +6,10 @@
   "Ng_eval": 256,
   "baseline_error_cm": 4.78350393189749,
   "chance_ceiling_cm": 117.57304987866124,
-  "grid_pool_size": 92,
+  "grid_pool_size": 94,
   "class_counts": {
-    "predictive": 32,
-    "retrospective": 9,
+    "predictive": 33,
+    "retrospective": 10,
     "normal": 51
   },
   "random_trials": 5,
@@ -25,48 +25,48 @@
     "rec_in",
     "rec_out"
   ],
-  "runtime_s": 7.2,
+  "runtime_s": 7.5,
   "preceiling_slopes": {
     "predictive": {
       "target": {
-        "slope_cm_per_unit": 0.0916555925388658,
-        "ci_lo": 0.08585391761115155,
-        "ci_hi": 0.10245208614533809,
-        "n_points": 6,
+        "slope_cm_per_unit": 0.08682273184877558,
+        "ci_lo": 0.08211513913726128,
+        "ci_hi": 0.09640426598672847,
+        "n_points": 7,
         "ceiling_frac": 0.9
       },
       "matched": {
-        "slope_cm_per_unit": 0.05930180740388498,
+        "slope_cm_per_unit": 0.05684431620722831,
         "ci_lo": NaN,
         "ci_hi": NaN,
-        "n_points": 6,
+        "n_points": 7,
         "ceiling_frac": 0.9
       },
       "random": {
-        "slope_cm_per_unit": 0.06386826828448512,
+        "slope_cm_per_unit": 0.06696728264303874,
         "ci_lo": NaN,
         "ci_hi": NaN,
-        "n_points": 6,
+        "n_points": 7,
         "ceiling_frac": 0.9
       }
     },
     "retrospective": {
       "target": {
-        "slope_cm_per_unit": 0.0017092068245857734,
-        "ci_lo": 0.0009033276703577363,
-        "ci_hi": 0.0027751297637099866,
+        "slope_cm_per_unit": 0.00165369826984761,
+        "ci_lo": 0.0004919209805252147,
+        "ci_hi": 0.0027606376158677733,
         "n_points": 5,
         "ceiling_frac": 0.9
       },
       "matched": {
-        "slope_cm_per_unit": 0.007410268406760142,
+        "slope_cm_per_unit": 0.004951453529148646,
         "ci_lo": NaN,
         "ci_hi": NaN,
         "n_points": 5,
         "ceiling_frac": 0.9
       },
       "random": {
-        "slope_cm_per_unit": 0.06948171617332197,
+        "slope_cm_per_unit": 0.05017468557261724,
         "ci_lo": NaN,
         "ci_hi": NaN,
         "n_points": 5,
@@ -75,21 +75,21 @@
     },
     "normal": {
       "target": {
-        "slope_cm_per_unit": 0.09022734310031917,
-        "ci_lo": 0.07816890272040311,
-        "ci_hi": 0.10349475963339858,
+        "slope_cm_per_unit": 0.09905577337405246,
+        "ci_lo": 0.08454102319322836,
+        "ci_hi": 0.11582828000312546,
         "n_points": 7,
         "ceiling_frac": 0.9
       },
       "matched": {
-        "slope_cm_per_unit": 0.046348826600008074,
+        "slope_cm_per_unit": 0.04391762855829144,
         "ci_lo": NaN,
         "ci_hi": NaN,
         "n_points": 7,
         "ceiling_frac": 0.9
       },
       "random": {
-        "slope_cm_per_unit": 0.06549563128132692,
+        "slope_cm_per_unit": 0.059239206272941484,
         "ci_lo": NaN,
         "ci_hi": NaN,
         "n_points": 7,

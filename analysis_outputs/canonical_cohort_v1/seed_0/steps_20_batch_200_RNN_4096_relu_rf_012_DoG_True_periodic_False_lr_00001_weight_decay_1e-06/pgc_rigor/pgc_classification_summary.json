@@ -12,9 +12,9 @@
     "shift_step_cm": 2.0,
     "space_projection": "path",
     "min_shift_cm": 5.0,
-    "gridness_floor": 0.1,
+    "gridness_floor": 0.15,
     "alpha": 0.05,
-    "n_shuffles": 50,
+    "n_shuffles": 40,
     "null_block": false,
     "res": 20,
     "n_batches": 16,
@@ -22,17 +22,17 @@
     "classify_seed": 1234,
     "confirm_seed": 9876,
     "heldout_confirm": true,
-    "n_workers": 10
+    "n_workers": 24
   },
   "counts": {
-    "non_grid": 164,
+    "non_grid": 162,
     "normal": 51,
-    "predictive": 32,
-    "retrospective": 9
+    "predictive": 33,
+    "retrospective": 10
   },
-  "n_candidates_null_tested": 226,
-  "n_edge_excluded": 23,
+  "n_candidates_null_tested": 217,
+  "n_edge_excluded": 20,
   "median_predictive_shift_cm": 17.809370040893555,
-  "median_retrospective_shift_cm": -31.661102294921875,
-  "runtime_s": 729.4
+  "median_retrospective_shift_cm": -23.745826721191406,
+  "runtime_s": 301.8
 }

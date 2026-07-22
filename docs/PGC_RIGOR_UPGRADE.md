@@ -8,6 +8,13 @@ preliminary single-seed values used to validate the code; the cross-seed
 statistics come from running the pipeline over the full cohort (see
 *Reproducibility & cohort*).
 
+> **Each headline result was adversarially audited** — see
+> `docs/PGC_RIGOR_VERIFICATION.md`. Summary: classifier ✓ (one seed-0 param bug
+> found and fixed); matched ablation ✓ with a residual firing-variance/HD-tuning
+> imbalance caveat; path-dependence ✓ (label-shuffle p=0.004, ~14% size effect);
+> intervention ✓ and now shown PGC-**specific** (magnitude-matched scrambled /
+> random-subspace replays fail where the true PGC replay rescues).
+
 All new modules share one foundation (`code/pgc_common.py`) so every per-unit
 quantity is derived from **one seeded activation collection** with **one unit
 index** (`0..Ng_use-1`), and the gridness definition is the *unchanged*

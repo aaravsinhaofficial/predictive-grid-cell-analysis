@@ -3,7 +3,7 @@
   "seed_id": 0,
   "device": "cuda",
   "Ng": 4096,
-  "n_predictive_units": 32,
+  "n_predictive_units": 33,
   "predictive_units": [
     4,
     5,
@@ -27,6 +27,7 @@
     168,
     178,
     187,
+    205,
     211,
     212,
     219,
@@ -39,9 +40,9 @@
     246
   ],
   "basis_units_desc": "dominant_grid_module(0)_minus_predictive",
-  "n_basis_units": 134,
+  "n_basis_units": 133,
   "projector": "standard",
-  "nat_pred_scale": 0.1864222139120102,
+  "nat_pred_scale": 0.18781200051307678,
   "n_batches": 8,
   "batch_size": 200,
   "sequence_length": 40,
@@ -51,29 +52,29 @@
     "float64_cpu_max_abs": 0.0
   },
   "phase_velocity": {
-    "intact": 0.20005629698677416,
-    "ablated": 0.22616727743588727,
-    "rescued": 0.20294217046145566,
-    "rescued_direct": 0.22616727743588727
+    "intact": 0.2002329578852172,
+    "ablated": 0.22620367293315488,
+    "rescued": 0.2031545019910936,
+    "rescued_direct": 0.22620367293315488
   },
   "decode_error_cm": {
     "intact": 4.720419395999286,
-    "ablated": 7.508665747024898,
-    "rescued": 4.901974758415792,
-    "rescued_direct": 7.508665747024898
+    "ablated": 7.4993447297420515,
+    "rescued": 4.90081652949632,
+    "rescued_direct": 7.4993447297420515
   },
   "net_displacement": {
-    "intact": 4.686725564096945,
-    "ablated": 5.380108685851161,
-    "rescued": 4.785958490630406,
-    "rescued_direct": 5.380108685851161
+    "intact": 4.686841938325788,
+    "ablated": 5.37784334154456,
+    "rescued": 4.786981364449243,
+    "rescued_direct": 5.37784334154456
   },
   "rescue_effect": {
-    "decode_error_recovered_fraction": 0.9348854657875822,
-    "phase_velocity_recovered_fraction": 0.8894766330086421,
-    "decode_error_ablation_gap_cm": 2.7882463510256112,
-    "decode_error_rescue_gain_cm": 2.606690988609105,
-    "phase_velocity_freeze_ratio": 1.1305181633489862
+    "decode_error_recovered_fraction": 0.9350838501104785,
+    "phase_velocity_recovered_fraction": 0.8875062122670198,
+    "decode_error_ablation_gap_cm": 2.778925333742765,
+    "decode_error_rescue_gain_cm": 2.598528200245731,
+    "phase_velocity_freeze_ratio": 1.129702499140153
   },
   "dose_curve": {
     "alpha_multiples": [
@@ -86,30 +87,30 @@
     ],
     "alpha": [
       0.0,
-      0.14913777112960816,
-      0.2982755422592163,
-      0.4474133133888245,
-      0.5965510845184326,
-      0.7456888556480408
+      0.15024960041046143,
+      0.30049920082092285,
+      0.45074880123138433,
+      0.6009984016418457,
+      0.7512480020523071
     ],
     "displacement": [
-      1.1604653177566624,
-      1.2263980376915782,
-      1.4370231239445321,
-      1.8179363653298326,
-      2.2225126426080575,
-      2.7421012567776706
+      1.1662728069990653,
+      1.234601827354881,
+      1.4479883707411314,
+      1.835481235374724,
+      2.250660866684146,
+      2.776351016794845
     ],
     "phase_velocity": [
-      0.04198533814237708,
-      0.04950382261799121,
-      0.059718542875086225,
-      0.07156903093556526,
-      0.08267562328090276,
-      0.09700989471864495
+      0.04213815951688855,
+      0.04973374771186697,
+      0.06003583945558187,
+      0.07206233346559819,
+      0.08344181571023838,
+      0.09810878390956768
     ],
-    "pearson_r": 0.9702667835158514,
-    "pearson_p": 0.001312953208175226,
+    "pearson_r": 0.970384719445462,
+    "pearson_p": 0.0013026100028010208,
     "spearman_r": 1.0,
     "spearman_p": 0.0,
     "monotonic": true

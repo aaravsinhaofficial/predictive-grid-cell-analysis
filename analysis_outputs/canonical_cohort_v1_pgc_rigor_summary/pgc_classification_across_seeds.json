@@ -33,13 +33,13 @@
     29
   ],
   "frac_predictive_mean_sem": [
-    0.09622395833333333,
-    0.0037760416666666667,
+    0.09635416666666667,
+    0.003812328740422039,
     30
   ],
   "frac_retrospective_mean_sem": [
-    0.05520833333333333,
-    0.0030645494159183277,
+    0.055338541666666664,
+    0.003037820259524688,
     30
   ],
   "frac_zero_lag_mean_sem": [
@@ -48,13 +48,13 @@
     30
   ],
   "frac_grid_mean_sem": [
-    0.312890625,
-    0.005295218627704995,
+    0.3131510416666667,
+    0.005379777490232149,
     30
   ],
   "predictive_frac_of_grid_mean_sem": [
-    0.3072855701120038,
-    0.010580869629512393,
+    0.30739349487302753,
+    0.01059566875960866,
     30
   ],
   "median_pred_shift_cm_mean_sem": [
@@ -63,8 +63,8 @@
     30
   ],
   "median_retro_shift_cm_mean_sem": [
-    -23.910728295644123,
-    1.3052787476104593,
+    -23.646885776519774,
+    1.2776303851639368,
     30
   ],
   "per_seed": [
@@ -72,19 +72,19 @@
       "seed": 0,
       "Ng": 256,
       "counts": {
-        "non_grid": 164,
+        "non_grid": 162,
         "normal": 51,
-        "predictive": 32,
-        "retrospective": 9
+        "predictive": 33,
+        "retrospective": 10
       },
-      "frac_predictive": 0.125,
-      "frac_retrospective": 0.03515625,
+      "frac_predictive": 0.12890625,
+      "frac_retrospective": 0.0390625,
       "frac_zero_lag": 0.19921875,
-      "frac_grid": 0.359375,
-      "predictive_frac_of_grid": 0.34782608695652173,
-      "retrospective_frac_of_grid": 0.09782608695652174,
+      "frac_grid": 0.3671875,
+      "predictive_frac_of_grid": 0.35106382978723405,
+      "retrospective_frac_of_grid": 0.10638297872340426,
       "median_pred_shift_cm": 17.809370040893555,
-      "median_retro_shift_cm": -31.661102294921875
+      "median_retro_shift_cm": -23.745826721191406
     },
     {
       "seed": 1,

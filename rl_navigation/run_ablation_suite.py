@@ -103,6 +103,9 @@ def main():
   ap.add_argument('--skip_readout', action='store_true')
   ap.add_argument('--label', default=None,
                   help='subdir label for this eval batch (default: ckpt id)')
+  ap.add_argument('--only', default=None,
+                  help='comma-separated condition tags to run (others skipped '
+                       'unless cached); sham is always included')
   ap.add_argument('--docker_image', default=None,
                   help='Run each eval inside this image (needed for DM-Lab '
                        'runs; mounts banino at /workspace and this repo at '
@@ -133,6 +136,10 @@ def main():
     for name in ('predictive', 'matched', 'randgrid_0', 'randgrid_1'):
       conditions.append((f'{name}_ro', sets[name], 'readout'))
     conditions.append(('all_ro', np.arange(ng), 'readout'))
+
+  if args.only:
+    keep = set(args.only.split(',')) | {'sham'}
+    conditions = [c for c in conditions if c[0] in keep]
 
   results = {}
   for tag, units, mode in conditions:

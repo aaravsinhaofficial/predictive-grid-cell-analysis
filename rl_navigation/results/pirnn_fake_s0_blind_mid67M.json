@@ -1,0 +1,235 @@
+{
+ "meta": {
+  "seed": 0,
+  "n_predictive": 33,
+  "n_retrospective": 10,
+  "n_zerolag": 51,
+  "grid_pool_size": 61
+ },
+ "ckpt": "/home/ec2-user/banino/rl_runs/pirnn_fake_s0_blind/ckpt_067200000.pt",
+ "episodes": 100,
+ "sham_mean": 9.9,
+ "sham_sem": 1.004937809021036,
+ "conditions": {
+  "chance": {
+   "mean": 4.6,
+   "sem": 0.6843975452907469,
+   "delta_vs_sham": -5.300000000000001,
+   "pct_of_sham": 46.46464646464646,
+   "welch_p": 2.4348850191798312e-05,
+   "mannwhitney_p": 2.8788188959656698e-05,
+   "n_ablated": 0,
+   "mode": "full",
+   "decode_err_cm": 4.538
+  },
+  "predictive": {
+   "mean": 7.1,
+   "sem": 0.7783957862167548,
+   "delta_vs_sham": -2.8000000000000007,
+   "pct_of_sham": 71.71717171717171,
+   "welch_p": 0.029640600797672053,
+   "mannwhitney_p": 0.06345284524169625,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 6.289
+  },
+  "retrospective": {
+   "mean": 8.2,
+   "sem": 0.852994724485445,
+   "delta_vs_sham": -1.700000000000001,
+   "pct_of_sham": 82.82828282828281,
+   "welch_p": 0.20095137101471444,
+   "mannwhitney_p": 0.3121320617810053,
+   "n_ablated": 10,
+   "mode": "full",
+   "decode_err_cm": 4.621
+  },
+  "zerolag_top": {
+   "mean": 9.3,
+   "sem": 0.9823950325607311,
+   "delta_vs_sham": -0.5999999999999996,
+   "pct_of_sham": 93.93939393939395,
+   "welch_p": 0.6714434102778291,
+   "mannwhitney_p": 0.6521979564593292,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 7.283
+  },
+  "matched": {
+   "mean": 7.7,
+   "sem": 0.8585452812752511,
+   "delta_vs_sham": -2.2,
+   "pct_of_sham": 77.77777777777777,
+   "welch_p": 0.09931847248529907,
+   "mannwhitney_p": 0.12993935419272998,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.613
+  },
+  "randgrid_0": {
+   "mean": 8.1,
+   "sem": 0.9559811713627001,
+   "delta_vs_sham": -1.8000000000000007,
+   "pct_of_sham": 81.81818181818181,
+   "welch_p": 0.19812639430716583,
+   "mannwhitney_p": 0.1504765373908214,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 6.287
+  },
+  "rand256_0": {
+   "mean": 8.6,
+   "sem": 1.0678951259369993,
+   "delta_vs_sham": -1.3000000000000007,
+   "pct_of_sham": 86.86868686868686,
+   "welch_p": 0.37880329080902175,
+   "mannwhitney_p": 0.18769692735341836,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.18
+  },
+  "randgrid_1": {
+   "mean": 7.7,
+   "sem": 0.7981854421122951,
+   "delta_vs_sham": -2.2,
+   "pct_of_sham": 77.77777777777777,
+   "welch_p": 0.08971913752016707,
+   "mannwhitney_p": 0.17678557496205438,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.304
+  },
+  "rand256_1": {
+   "mean": 9.1,
+   "sem": 0.9601562372864112,
+   "delta_vs_sham": -0.8000000000000007,
+   "pct_of_sham": 91.91919191919192,
+   "welch_p": 0.56749954435443,
+   "mannwhitney_p": 0.5954690427324448,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.565
+  },
+  "randgrid_2": {
+   "mean": 7.6,
+   "sem": 0.9068627239003707,
+   "delta_vs_sham": -2.3000000000000007,
+   "pct_of_sham": 76.76767676767676,
+   "welch_p": 0.09249859273257169,
+   "mannwhitney_p": 0.08331854284789365,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 6.087
+  },
+  "rand256_2": {
+   "mean": 10.1,
+   "sem": 1.1445086281894077,
+   "delta_vs_sham": 0.1999999999999993,
+   "pct_of_sham": 102.02020202020202,
+   "welch_p": 0.896183981081442,
+   "mannwhitney_p": 0.8224118119375783,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.565
+  },
+  "randgrid_3": {
+   "mean": 8.0,
+   "sem": 0.894427190999916,
+   "delta_vs_sham": -1.9000000000000004,
+   "pct_of_sham": 80.8080808080808,
+   "welch_p": 0.1615443564793549,
+   "mannwhitney_p": 0.18679262698561783,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.954
+  },
+  "rand256_3": {
+   "mean": 7.0,
+   "sem": 0.7681145747868607,
+   "delta_vs_sham": -2.9000000000000004,
+   "pct_of_sham": 70.7070707070707,
+   "welch_p": 0.023672719696443953,
+   "mannwhitney_p": 0.05349683030026269,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.303
+  },
+  "randgrid_4": {
+   "mean": 7.7,
+   "sem": 0.8349251463454672,
+   "delta_vs_sham": -2.2,
+   "pct_of_sham": 77.77777777777777,
+   "welch_p": 0.0954834595574978,
+   "mannwhitney_p": 0.14648608101484412,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.542
+  },
+  "rand256_4": {
+   "mean": 8.1,
+   "sem": 0.8449260322655467,
+   "delta_vs_sham": -1.8000000000000007,
+   "pct_of_sham": 81.81818181818181,
+   "welch_p": 0.174129820621103,
+   "mannwhitney_p": 0.26997703558579766,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 10.401
+  },
+  "predictive_ro": {
+   "mean": 7.4,
+   "sem": 0.8901685233707154,
+   "delta_vs_sham": -2.5,
+   "pct_of_sham": 74.74747474747474,
+   "welch_p": 0.06541139180539306,
+   "mannwhitney_p": 0.06116060865611193,
+   "n_ablated": 33,
+   "mode": "readout",
+   "decode_err_cm": 4.655
+  },
+  "matched_ro": {
+   "mean": 9.2,
+   "sem": 0.996794863550169,
+   "delta_vs_sham": -0.7000000000000011,
+   "pct_of_sham": 92.92929292929291,
+   "welch_p": 0.623219752857221,
+   "mannwhitney_p": 0.5415434364634744,
+   "n_ablated": 33,
+   "mode": "readout",
+   "decode_err_cm": 4.635
+  },
+  "randgrid_0_ro": {
+   "mean": 7.5,
+   "sem": 0.8645808232895291,
+   "delta_vs_sham": -2.4000000000000004,
+   "pct_of_sham": 75.75757575757575,
+   "welch_p": 0.07320612686696439,
+   "mannwhitney_p": 0.08605164918012437,
+   "n_ablated": 33,
+   "mode": "readout",
+   "decode_err_cm": 4.607
+  },
+  "randgrid_1_ro": {
+   "mean": 9.3,
+   "sem": 0.9513674369033239,
+   "delta_vs_sham": -0.5999999999999996,
+   "pct_of_sham": 93.93939393939395,
+   "welch_p": 0.666645178357776,
+   "mannwhitney_p": 0.7406628025730126,
+   "n_ablated": 33,
+   "mode": "readout",
+   "decode_err_cm": 4.602
+  },
+  "all_ro": {
+   "mean": 8.2,
+   "sem": 0.8646386528486915,
+   "delta_vs_sham": -1.700000000000001,
+   "pct_of_sham": 82.82828282828281,
+   "welch_p": 0.20351655173846753,
+   "mannwhitney_p": 0.29903248087792955,
+   "n_ablated": 4096,
+   "mode": "readout",
+   "decode_err_cm": 4.622
+  }
+ }
+}

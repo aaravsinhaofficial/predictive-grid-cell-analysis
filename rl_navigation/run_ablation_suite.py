@@ -122,7 +122,7 @@ def main():
   out_dir = os.path.join(run, 'ablation_evals', label)
   os.makedirs(out_dir, exist_ok=True)
 
-  conditions = [('sham', None, 'full')]
+  conditions = [('sham', None, 'full'), ('chance', None, 'full')]
   for name, units in sets.items():
     conditions.append((name, units, 'full'))
   if not args.skip_readout:
@@ -143,6 +143,8 @@ def main():
            '--ckpt', ckpt, '--episodes', str(args.episodes),
            '--n_envs', str(args.n_envs), '--device', args.device,
            '--tag', tag, '--ablation_mode', mode, '--out', out_json]
+    if tag == 'chance':
+      cmd += ['--random_policy']
     if units is not None:
       uf = os.path.join(out_dir, f'{tag}_units.json')
       with open(uf, 'w') as f:

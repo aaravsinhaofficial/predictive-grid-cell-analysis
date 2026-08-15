@@ -103,6 +103,10 @@ def main():
   ap.add_argument('--skip_readout', action='store_true')
   ap.add_argument('--label', default=None,
                   help='subdir label for this eval batch (default: ckpt id)')
+  ap.add_argument('--pirnn_ckpt', default=None,
+                  help='override the RNN checkpoint path recorded in the '
+                       "run's config.json (needed for runs trained on "
+                       'another machine); path is docker-translated')
   ap.add_argument('--only', default=None,
                   help='comma-separated condition tags to run (others skipped '
                        'unless cached); sham is always included')
@@ -156,6 +160,8 @@ def main():
            '--ckpt', tr(ckpt), '--episodes', str(args.episodes),
            '--n_envs', str(args.n_envs), '--device', args.device,
            '--tag', tag, '--ablation_mode', mode, '--out', tr(out_json)]
+    if args.pirnn_ckpt:
+      cmd += ['--pirnn_ckpt', tr(os.path.abspath(args.pirnn_ckpt))]
     if tag == 'chance':
       cmd += ['--random_policy']
     if units is not None:
@@ -164,7 +170,9 @@ def main():
         json.dump([int(u) for u in units], f)
       cmd += ['--ablate', '@' + tr(uf)]
     if args.docker_image:
+      aset = os.environ.get('BANINO_ACTION_SET', '')
       cmd = ['docker', 'run', '--rm', '--gpus', 'device=1', '--shm-size=6g',
+             '-e', f'BANINO_ACTION_SET={aset}',
              '-v', f'{BANINO}:/workspace', '-v', f'{PGC}:/pgc',
              '-w', '/workspace', args.docker_image] + cmd
     print(f'[suite] running {tag} ({mode}, '

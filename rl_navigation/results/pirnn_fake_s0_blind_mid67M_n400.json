@@ -1,0 +1,81 @@
+{
+ "meta": {
+  "seed": 0,
+  "n_predictive": 33,
+  "n_retrospective": 10,
+  "n_zerolag": 51,
+  "grid_pool_size": 61
+ },
+ "ckpt": "/home/ec2-user/banino/rl_runs/pirnn_fake_s0_blind/ckpt_067200000.pt",
+ "episodes": 400,
+ "sham_mean": 9.225,
+ "sham_sem": 0.5090416854246811,
+ "conditions": {
+  "predictive": {
+   "mean": 8.9,
+   "sem": 0.4957065664281643,
+   "delta_vs_sham": -0.3249999999999993,
+   "pct_of_sham": 96.4769647696477,
+   "welch_p": 0.6479141072254939,
+   "mannwhitney_p": 0.6983824817800599,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 6.411
+  },
+  "zerolag_top": {
+   "mean": 8.65,
+   "sem": 0.5103368985288051,
+   "delta_vs_sham": -0.5749999999999993,
+   "pct_of_sham": 93.7669376693767,
+   "welch_p": 0.4258530624388758,
+   "mannwhitney_p": 0.3184563259104698,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 7.238
+  },
+  "matched": {
+   "mean": 8.075,
+   "sem": 0.48745352342556725,
+   "delta_vs_sham": -1.1500000000000004,
+   "pct_of_sham": 87.53387533875338,
+   "welch_p": 0.10357258021214577,
+   "mannwhitney_p": 0.09460747095374532,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 5.727
+  },
+  "randgrid_0": {
+   "mean": 8.625,
+   "sem": 0.4946194875861646,
+   "delta_vs_sham": -0.5999999999999996,
+   "pct_of_sham": 93.4959349593496,
+   "welch_p": 0.39876159155113455,
+   "mannwhitney_p": 0.4258432155055313,
+   "n_ablated": 33,
+   "mode": "full",
+   "decode_err_cm": 6.362
+  },
+  "predictive_ro": {
+   "mean": 8.075,
+   "sem": 0.45974007602122313,
+   "delta_vs_sham": -1.1500000000000004,
+   "pct_of_sham": 87.53387533875338,
+   "welch_p": 0.09443085863245605,
+   "mannwhitney_p": 0.17932613144120846,
+   "n_ablated": 33,
+   "mode": "readout",
+   "decode_err_cm": 4.648
+  },
+  "all_ro": {
+   "mean": 8.425,
+   "sem": 0.49185713118750246,
+   "delta_vs_sham": -0.7999999999999989,
+   "pct_of_sham": 91.3279132791328,
+   "welch_p": 0.2593325142428335,
+   "mannwhitney_p": 0.25881932954197295,
+   "n_ablated": 4096,
+   "mode": "readout",
+   "decode_err_cm": 4.639
+  }
+ }
+}

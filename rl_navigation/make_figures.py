@@ -152,39 +152,43 @@ ax.set_title('C  The same lesions DO degrade the code (mechanism intact)',
              fontsize=10, loc='left', color='#1a1a19')
 ax.legend(fontsize=7, frameon=False)
 
-# --- D: reliance over training (arena all_ro deficit) -------------------
+# --- D: forest plot — predictive-ablation effect, every evaluation ------
 ax = axes[1, 1]
-pts = []
-pv_s = os.path.join(RES, 'pv_sham.json')
-pv_a = os.path.join(RES, 'pv_allro.json')
-if os.path.exists(pv_s) and os.path.exists(pv_a):
-  s0 = json.load(open(pv_s))
-  a0 = json.load(open(pv_a))
-  pts.append((124, s0['mean_score'], s0['sem'], a0['mean_score'], a0['sem'],
-              'preview n=30'))
-mid = load('pirnn_arena_s0_mid128M')
-if mid:
-  m, e = cond_stats(mid, 'all_ro')
-  pts.append((128, mid['sham_mean'], mid['sham_sem'], m, e, 'suite n=80'))
-fin = load('pirnn_arena_s0_final')
-if fin:
-  m, e = cond_stats(fin, 'all_ro')
-  pts.append((192, fin['sham_mean'], fin['sham_sem'], m, e, 'suite n=80'))
-if pts:
-  x = [p[0] for p in pts]
-  ax.errorbar(x, [p[1] for p in pts], yerr=[p[2] for p in pts], color=GRAY,
-              lw=2, marker='o', ms=5, capsize=0, label='sham')
-  ax.errorbar(x, [p[3] for p in pts], yerr=[p[4] for p in pts], color=C[6],
-              lw=2, marker='o', ms=5, capsize=0, label='code fully masked')
-  for p in pts:
-    ax.annotate(p[5], (p[0], min(p[3], p[1]) - 2.4), fontsize=6.5,
-                color=GRAY, ha='center')
-ax.set_xlabel('arena training frames at checkpoint (M)', fontsize=9,
-              color=GRAY)
-ax.set_ylabel('score', fontsize=9, color=GRAY)
-ax.set_title('D  DM-Lab arena: code reliance is transient during learning',
-             fontsize=10, loc='left', color='#1a1a19')
-ax.legend(fontsize=7, frameon=False)
+EVALS = [  # (stem, label, palette slot)
+    ('pirnn_fake_s0_blind_final', 'blind s0, 106M (n=150)', 3),
+    ('pirnn_fake_s2_blind_final', 'blind s2, 112M (n=150)', 4),
+    ('pirnn_fake_s0_final', 'sighted s0, 304M (n=100)', 0),
+    ('pirnn_arena_s0_final', 'arena s0, 192M (n=80)', 6),
+    ('pirnn_arena_s0_mid128M', 'arena s0, 128M (n=80)', 6),
+    ('pirnn_fake_s0_blind_mid67M', 'blind s0, 67M (n=100)', 3),
+    ('pirnn_fake_s0_blind_mid67M_n400', 'blind s0, 67M (n=400 confirm)', 3),
+    ('pirnn_fake_s2_blind_mid78M', 'blind s2, 78M (n=100 replicate)', 4),
+]
+ys, labels = [], []
+for i, (stem, label, slot) in enumerate(EVALS):
+  s = load(stem)
+  if not s:
+    continue
+  c = s['conditions'].get('predictive')
+  if not c:
+    continue
+  d = c['delta_vs_sham']
+  ci = 1.96 * np.hypot(c['sem'], s['sham_sem'])
+  y = len(ys)
+  ax.errorbar([d], [y], xerr=[ci], fmt='o', ms=6, color=C[slot],
+              ecolor=C[slot], elinewidth=2, capsize=0, zorder=3)
+  ys.append(y)
+  labels.append(label)
+ax.axvline(0, color=GRAY, lw=1.2)
+ax.set_yticks(ys)
+ax.set_yticklabels(labels, fontsize=7.5, color=GRAY)
+ax.invert_yaxis()
+ax.set_xlabel('predictive-ablation effect on score, Δ vs sham (95% CI)',
+              fontsize=9, color=GRAY)
+ax.set_title('D  Predictive ablation: no behavioural deficit in any '
+             'evaluation', fontsize=10, loc='left', color='#1a1a19')
+ax.grid(axis='x', color='#eceae4', lw=0.8)
+ax.grid(axis='y', visible=False)
 
 fig.tight_layout(pad=1.6)
 out = os.path.join(RES, 'rl_navigation_results.png')

@@ -103,6 +103,10 @@ def main():
   ap.add_argument('--skip_readout', action='store_true')
   ap.add_argument('--label', default=None,
                   help='subdir label for this eval batch (default: ckpt id)')
+  ap.add_argument('--docker_image', default=None,
+                  help='Run each eval inside this image (needed for DM-Lab '
+                       'runs; mounts banino at /workspace and this repo at '
+                       '/pgc, paths are translated).')
   args = ap.parse_args()
   run = os.path.abspath(os.path.expanduser(args.run))
 
@@ -139,17 +143,23 @@ def main():
       print(f'[suite] {tag}: cached ({results[tag]["mean_score"]:.2f})',
             flush=True)
       continue
-    cmd = [sys.executable, '-m', 'rl.eval_pirnn', '--run', run,
-           '--ckpt', ckpt, '--episodes', str(args.episodes),
+    tr = (lambda p: p.replace(BANINO, '/workspace').replace(PGC, '/pgc')) \
+        if args.docker_image else (lambda p: p)
+    cmd = ['python3', '-m', 'rl.eval_pirnn', '--run', tr(run),
+           '--ckpt', tr(ckpt), '--episodes', str(args.episodes),
            '--n_envs', str(args.n_envs), '--device', args.device,
-           '--tag', tag, '--ablation_mode', mode, '--out', out_json]
+           '--tag', tag, '--ablation_mode', mode, '--out', tr(out_json)]
     if tag == 'chance':
       cmd += ['--random_policy']
     if units is not None:
       uf = os.path.join(out_dir, f'{tag}_units.json')
       with open(uf, 'w') as f:
         json.dump([int(u) for u in units], f)
-      cmd += ['--ablate', '@' + uf]
+      cmd += ['--ablate', '@' + tr(uf)]
+    if args.docker_image:
+      cmd = ['docker', 'run', '--rm', '--gpus', 'device=1', '--shm-size=6g',
+             '-v', f'{BANINO}:/workspace', '-v', f'{PGC}:/pgc',
+             '-w', '/workspace', args.docker_image] + cmd
     print(f'[suite] running {tag} ({mode}, '
           f'n={0 if units is None else len(units)})...', flush=True)
     subprocess.run(cmd, cwd=BANINO, check=True,

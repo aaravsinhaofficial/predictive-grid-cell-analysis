@@ -29,6 +29,8 @@ from aarav_crossing_population_correlation import load_model
 from aarav_activity_space_ablation import make_random_walk_inputs
 from multi_seed_predictive_analysis import zero_unit_weights_in_place
 from aarav_definition_dynamics import derive_classes, pca_basis, autocorr_curves, T_FIT
+from visualize import compute_ratemaps
+from toroidal_structure_analysis import build_torus_basis, identify_toroidal_cells, project_states_to_torus
 
 C_BASE, C_PRED, C_MATCH, C_RAND, C_CLOUD = "#e8141b", "#12d8e8", "#eb6834", "#7f7f7f", "#b5b5b5"
 LAGS = list(range(1, 30))
@@ -93,6 +95,51 @@ def trajectories_for_seed(seed, args, device, root, subdir):
     return out
 
 
+def torus_trajectories_for_seed(seed, args, device, root, subdir):
+    """Major-circle torus view (r1 cos th1, r1 sin th1) of long rollouts, basis as in aarav_matched_torus.py."""
+    ckpt = os.path.join(_REPO, args.model_root, f"Seed {seed}", "most_recent_model.pth")
+    base = os.path.join(root, f"Seed {seed}", subdir)
+    cl = derive_classes(os.path.join(base, "gridness_data.npz"), os.path.join(base, "band_cells", "band_scores.npz"))
+    matched = np.load(os.path.join(base, "aarav_matched_torus", "matched_sets.npz"))["matched_lib_0"]
+    pred = cl["pred_lib"]
+    grid_union = np.unique(np.concatenate([cl["pred_lib"], cl["retro_lib"], cl["normal_lib"]]))
+    model, place_cells, traj_gen, opt, Ng, Np = load_model(ckpt, device, 20)
+    np.random.seed(4321 + seed)
+    rm, _, _, _ = compute_ratemaps(model, traj_gen, opt, res=40, n_avg=12, Ng=grid_union.size, idxs=grid_union)
+    rm = np.asarray(rm, float)
+    tmp = os.path.join(base, "aarav_matched_torus"); os.makedirs(tmp, exist_ok=True)
+    det = identify_toroidal_cells(rm, grid_union, opt.box_width, tmp, embed_mode="umap")
+    tor = np.asarray(det.units, int)
+    pos_in = {int(g): i for i, g in enumerate(grid_union)}
+    loc = np.array([pos_in[int(u)] for u in tor], dtype=int)
+    basis = build_torus_basis(rm[loc], np.arange(loc.size), opt.box_width); basis.units = tor
+    T, B = args.seq_len_torus, 64
+    traj_gen.options.sequence_length = T
+    traj_gen.options.trajectory_style = "random_walk"
+    inputs, pos = make_random_walk_inputs(traj_gen, B, T, 777 + seed)
+
+    def run(m):
+        with torch.no_grad():
+            return m.g(inputs).detach().cpu().numpy()
+
+    def ablated(units):
+        m = copy.deepcopy(model); zero_unit_weights_in_place(m, list(units)); return m
+
+    g0 = run(model)
+    P0 = project_states_to_torus(g0, basis, (1.0, 0.35), T, B)
+    out = {"module_size": int(tor.size), "n_pred_in_module": int(np.intersect1d(pred, tor).size),
+           "n_matched_in_module": int(np.intersect1d(matched, tor).size)}
+    xy = lambda P: np.stack([P.r1 * np.cos(P.theta1), P.r1 * np.sin(P.theta1)], -1)     # [T,B,2]
+    X0 = xy(P0)
+    for name, units in (("pgc", pred), ("matched", matched)):
+        Pc = project_states_to_torus(run(ablated(units)), basis, (1.0, 0.35), T, B)
+        out[name] = {"intact": X0, "ablated": xy(Pc), "cloud": X0[T_FIT:].reshape(-1, 2)}
+    # display trajectory: the one whose intact phase th1 travels the most (most revolutions), a fixed rule
+    rev = np.abs(np.unwrap(P0.theta1, axis=0)[-1] - np.unwrap(P0.theta1, axis=0)[0]) / (2 * np.pi)
+    out["traj_index"] = int(np.argmax(rev)); out["revolutions"] = float(rev.max())
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", nargs="+", type=int, default=list(range(10)))
@@ -104,6 +151,8 @@ def main():
     ap.add_argument("--test_trajectories", type=int, default=256)
     ap.add_argument("--redman_jpg", default="RNN_predictive_grid_cell_function_temporal_shift.jpg")
     ap.add_argument("--all_networks", action="store_true", help="show every network (5 per row), not only the selected ones")
+    ap.add_argument("--torus_view", action="store_true", help="torus-basis major-circle projection of long rollouts instead of PC1-2")
+    ap.add_argument("--seq_len_torus", type=int, default=120)
     args = ap.parse_args()
     device = args.device if torch.cuda.is_available() else "cpu"
     root = os.path.join(_REPO, args.analysis_root)
@@ -115,14 +164,15 @@ def main():
         t = table[s]; print(f"  seed {s}: {t['intact']:.2f} / {t['pgc']:.2f} / {t['matched']:.2f} / {t['random_grid']:.2f}" + ("  <- selected" if s in sel else ""))
 
     show = sorted(table) if args.all_networks else sel
-    traj = {s: trajectories_for_seed(s, args, device, root, args.analysis_subdir) for s in show}
+    fn = torus_trajectories_for_seed if args.torus_view else trajectories_for_seed
+    traj = {s: fn(s, args, device, root, args.analysis_subdir) for s in show}
 
     # ------------------------------------------------------------------ addendum figure
     n = len(show)
     ncol = 5 if args.all_networks else n
     nblk = int(np.ceil(n / ncol))
     fig = plt.figure(figsize=(3.1 * ncol, 3.4 * 2 * nblk + 4.2))
-    gs = fig.add_gridspec(2 * nblk + 1, ncol, height_ratios=[1] * (2 * nblk) + [1.15], hspace=0.38, wspace=0.2)
+    gs = fig.add_gridspec(2 * nblk + 1, ncol, height_ratios=[1] * (2 * nblk) + [1.15], hspace=0.45, wspace=0.25)
     for k, s in enumerate(show):
         blk, col = divmod(k, ncol)
         for row, (key, color, label) in enumerate((("pgc", C_PRED, "Pred. ablat."), ("matched", C_MATCH, "Matched ablat."))):
@@ -131,12 +181,14 @@ def main():
             ax.scatter(d["cloud"][:, 0], d["cloud"][:, 1], s=4, color=C_CLOUD, alpha=0.45, lw=0)
             ax.plot(d["intact"][:, j, 0], d["intact"][:, j, 1], color=C_BASE, lw=2.2, label="Base")
             ax.plot(d["ablated"][:, j, 0], d["ablated"][:, j, 1], color=color, lw=2.2, label=label)
+            ax.plot(d["intact"][0, j, 0], d["intact"][0, j, 1], "o", color=C_BASE, ms=5)
             ax.set_xticks([]); ax.set_yticks([]); ax.set_aspect("equal")
             for sp in ax.spines.values():
                 sp.set_linewidth(1.2)
             if row == 0:
                 tag = " ✓" if (args.all_networks and s in sel) else ""
-                ax.set_title(f"Network {s}{tag}\nθ1 clumping  PGC {table[s]['pgc']:.2f} · matched {table[s]['matched']:.2f}", fontsize=8.5,
+                extra = f"\nbase: {traj[s]['revolutions']:.1f} revolutions" if args.torus_view else ""
+                ax.set_title(f"Network {s}{tag}\nθ1 clumping PGC {table[s]['pgc']:.2f} · matched {table[s]['matched']:.2f}{extra}", fontsize=8,
                              color=(C_PRED if tag else "black"))
             if col == 0:
                 ax.set_ylabel("Pred. grid unit ablation" if row == 0 else "Property-matched ablation", fontsize=11)
@@ -171,7 +223,13 @@ def main():
     ax3.set_ylabel("Torus-phase clumping\n(resultant of θ1; 1 = stuck)"); ax3.set_ylim(0, 1.0)
     ax3.set_title("Selection: PGC clumping ≥ 0.6 & base < 0.5 (✓)", fontsize=10)
     ax3.spines[["top", "right"]].set_visible(False); ax3.legend(fontsize=8, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2)
-    if args.all_networks:
+    if args.all_networks and args.torus_view:
+        fig.suptitle(f"Addendum, all networks, torus view: {args.seq_len_torus}-step rollouts projected on the toroidal module's major circle "
+                     "(r1·cos θ1, r1·sin θ1; grey = intact states, ● = start). Per network: top = predictive ablation, bottom = property-matched control ablation\n"
+                     f"✓ = networks in which PGC ablation clumps the torus phase ({len(sel)} of {len(table)}); original PGC definition; "
+                     "shown trajectory = the one with most revolutions (fixed rule); autocorrelation panels use the 40-step rollouts", fontsize=10.5, y=0.995)
+        fname = "redman_addendum_all_networks_torus.png"
+    elif args.all_networks:
         fig.suptitle("Addendum, all networks: base vs ablated grid-population PCA trajectories (per network: top = predictive ablation, "
                      "bottom = property-matched control ablation, same number of cells, 8 covariates matched)\n"
                      f"✓ = networks in which PGC ablation clumps the torus phase ({len(sel)} of {len(table)}); original PGC definition; "

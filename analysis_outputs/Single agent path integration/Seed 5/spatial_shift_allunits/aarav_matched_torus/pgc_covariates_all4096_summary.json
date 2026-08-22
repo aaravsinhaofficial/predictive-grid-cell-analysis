@@ -1,0 +1,9 @@
+{
+  "checkpoint": "/home/ec2-user/predictive-grid-cell-analysis/Models/Single agent path integration/Seed 5/most_recent_model.pth",
+  "seed_id": 5,
+  "Ng": 4096,
+  "collection_seed": 4321,
+  "n_grid_units": 2185,
+  "n_modules": 2,
+  "median_spacing_cm": 88.00000000000001
+}

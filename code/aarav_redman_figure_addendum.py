@@ -103,6 +103,7 @@ def main():
     ap.add_argument("--seq_len", type=int, default=40)
     ap.add_argument("--test_trajectories", type=int, default=256)
     ap.add_argument("--redman_jpg", default="RNN_predictive_grid_cell_function_temporal_shift.jpg")
+    ap.add_argument("--all_networks", action="store_true", help="show every network (5 per row), not only the selected ones")
     args = ap.parse_args()
     device = args.device if torch.cuda.is_available() else "cpu"
     root = os.path.join(_REPO, args.analysis_root)
@@ -113,15 +114,19 @@ def main():
     for s in sorted(table):
         t = table[s]; print(f"  seed {s}: {t['intact']:.2f} / {t['pgc']:.2f} / {t['matched']:.2f} / {t['random_grid']:.2f}" + ("  <- selected" if s in sel else ""))
 
-    traj = {s: trajectories_for_seed(s, args, device, root, args.analysis_subdir) for s in sel}
+    show = sorted(table) if args.all_networks else sel
+    traj = {s: trajectories_for_seed(s, args, device, root, args.analysis_subdir) for s in show}
 
     # ------------------------------------------------------------------ addendum figure
-    n = len(sel)
-    fig = plt.figure(figsize=(3.1 * n, 12.2))
-    gs = fig.add_gridspec(3, n, height_ratios=[1, 1, 1.15], hspace=0.38, wspace=0.2)
-    for col, s in enumerate(sel):
+    n = len(show)
+    ncol = 5 if args.all_networks else n
+    nblk = int(np.ceil(n / ncol))
+    fig = plt.figure(figsize=(3.1 * ncol, 3.4 * 2 * nblk + 4.2))
+    gs = fig.add_gridspec(2 * nblk + 1, ncol, height_ratios=[1] * (2 * nblk) + [1.15], hspace=0.38, wspace=0.2)
+    for k, s in enumerate(show):
+        blk, col = divmod(k, ncol)
         for row, (key, color, label) in enumerate((("pgc", C_PRED, "Pred. ablat."), ("matched", C_MATCH, "Matched ablat."))):
-            ax = fig.add_subplot(gs[row, col])
+            ax = fig.add_subplot(gs[2 * blk + row, col])
             d = traj[s][key]; j = traj[s]["traj_index"]
             ax.scatter(d["cloud"][:, 0], d["cloud"][:, 1], s=4, color=C_CLOUD, alpha=0.45, lw=0)
             ax.plot(d["intact"][:, j, 0], d["intact"][:, j, 1], color=C_BASE, lw=2.2, label="Base")
@@ -130,14 +135,18 @@ def main():
             for sp in ax.spines.values():
                 sp.set_linewidth(1.2)
             if row == 0:
-                ax.set_title(f"Network {s}\nθ1 clumping  PGC {table[s]['pgc']:.2f} · matched {table[s]['matched']:.2f}", fontsize=8.5)
+                tag = " ✓" if (args.all_networks and s in sel) else ""
+                ax.set_title(f"Network {s}{tag}\nθ1 clumping  PGC {table[s]['pgc']:.2f} · matched {table[s]['matched']:.2f}", fontsize=8.5,
+                             color=(C_PRED if tag else "black"))
             if col == 0:
                 ax.set_ylabel("Pred. grid unit ablation" if row == 0 else "Property-matched ablation", fontsize=11)
-                ax.legend(fontsize=8, frameon=False, loc="upper left")
+                if blk == 0:
+                    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    last = 2 * nblk
     # row 3: autocorrelation (selected networks), autocorrelation (all networks), clumping per network
-    ax1 = fig.add_subplot(gs[2, 0:max(1, n // 3)])
-    ax2 = fig.add_subplot(gs[2, max(1, n // 3):max(2, 2 * n // 3)])
-    ax3 = fig.add_subplot(gs[2, max(2, 2 * n // 3):])
+    ax1 = fig.add_subplot(gs[last, 0:max(1, ncol // 3)])
+    ax2 = fig.add_subplot(gs[last, max(1, ncol // 3):max(2, 2 * ncol // 3)])
+    ax3 = fig.add_subplot(gs[last, max(2, 2 * ncol // 3):])
 
     def ac_panel(ax, seeds, title):
         x = np.array([0] + LAGS)
@@ -149,7 +158,7 @@ def main():
         ax.set_xlim(0, 29); ax.set_ylim(0.4, 1.0); ax.set_xlabel("Lag"); ax.set_ylabel("Autocorrelation")
         ax.set_title(title, fontsize=10); ax.spines[["top", "right"]].set_visible(False)
         ax.legend(fontsize=8, frameon=False, loc="lower left")
-    ac_panel(ax1, sel, f"Selected networks (n = {n})")
+    ac_panel(ax1, sel, f"Selected networks (n = {len(sel)})")
     ac_panel(ax2, sorted(table), f"All networks (n = {len(table)})")
     seeds_all = sorted(table)
     xs = np.arange(len(seeds_all))
@@ -162,15 +171,23 @@ def main():
     ax3.set_ylabel("Torus-phase clumping\n(resultant of θ1; 1 = stuck)"); ax3.set_ylim(0, 1.0)
     ax3.set_title("Selection: PGC clumping ≥ 0.6 & base < 0.5 (✓)", fontsize=10)
     ax3.spines[["top", "right"]].set_visible(False); ax3.legend(fontsize=8, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2)
-    fig.suptitle("Addendum: networks in which predictive-unit ablation clumps the torus phase — base vs ablated grid-population PCA trajectories "
-                 "(top: predictive ablation; middle: property-matched control ablation, same number of cells, 8 covariates matched)\n"
-                 f"Selected post hoc ({n} of {len(table)} networks); original PGC definition; grid population = standard grid units minus ablated",
-                 fontsize=10.5, y=0.995)
-    fig.savefig(os.path.join(out_dir, "redman_addendum_selected_networks.png"), dpi=170, bbox_inches="tight"); plt.close(fig)
+    if args.all_networks:
+        fig.suptitle("Addendum, all networks: base vs ablated grid-population PCA trajectories (per network: top = predictive ablation, "
+                     "bottom = property-matched control ablation, same number of cells, 8 covariates matched)\n"
+                     f"✓ = networks in which PGC ablation clumps the torus phase ({len(sel)} of {len(table)}); original PGC definition; "
+                     "grid population = standard grid units minus ablated", fontsize=10.5, y=0.995)
+        fname = "redman_addendum_all_networks.png"
+    else:
+        fig.suptitle("Addendum: networks in which predictive-unit ablation clumps the torus phase — base vs ablated grid-population PCA trajectories "
+                     "(top: predictive ablation; middle: property-matched control ablation, same number of cells, 8 covariates matched)\n"
+                     f"Selected post hoc ({n} of {len(table)} networks); original PGC definition; grid population = standard grid units minus ablated",
+                     fontsize=10.5, y=0.995)
+        fname = "redman_addendum_selected_networks.png"
+    fig.savefig(os.path.join(out_dir, fname), dpi=170, bbox_inches="tight"); plt.close(fig)
 
     # ------------------------------------------------------------------ composite with Will's figure
     jp = os.path.join(_REPO, args.redman_jpg)
-    if os.path.exists(jp):
+    if os.path.exists(jp) and not args.all_networks:
         img = mpimg.imread(jp); add = mpimg.imread(os.path.join(out_dir, "redman_addendum_selected_networks.png"))
         h1, w1 = img.shape[:2]; h2, w2 = add.shape[:2]
         W = 20.0
@@ -182,7 +199,7 @@ def main():
     json.dump({"selected": sel, "criterion": "theta1 clumping after PGC ablation >= 0.6 and intact < 0.5",
                "table": {str(s): {k: (float(v) if not isinstance(v, np.ndarray) else None) for k, v in table[s].items() if not isinstance(v, np.ndarray)} for s in table}},
               open(os.path.join(out_dir, "redman_addendum_selection.json"), "w"), indent=1)
-    print(f"wrote {out_dir}/redman_addendum_selected_networks.png and redman_figure_plus_addendum.png")
+    print(f"wrote {out_dir}/{fname}")
 
 
 if __name__ == "__main__":
